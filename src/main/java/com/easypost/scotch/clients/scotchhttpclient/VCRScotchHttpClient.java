@@ -40,17 +40,19 @@ public class VCRScotchHttpClient {
         return new AbstractMap.SimpleEntry<String, String>(key, value);
     }
 
-    private HttpResponse<String> recordResponse(HttpResponse<String> httpResponse, String requestBody) throws IOException {
+    private HttpResponse<String> sendAndRecordResponse(HttpRequest request, String requestBody)
+            throws IOException, InterruptedException {
+
+        HttpResponse<String> httpResponse = this.client.send(request, HttpResponse.BodyHandlers.ofString());
 
         HttpInteraction interaction = createInteractionFromHttpResponse(httpResponse, requestBody);
 
-        Cassette.updateInteraction(cassettePath, interaction);
+        Cassette.updateInteraction(this.cassettePath, interaction);
 
         return httpResponse;
     }
 
-    private HttpResponse<String> populateResponse(HttpResponse<String> response, String requestBody) throws IOException {
-        HttpRequest httpRequest = response.request();
+    private HttpResponse<String> populateWithCachedResponse(HttpRequest httpRequest, String requestBody) {
         Request request = new Request();
         request.setMethod(httpRequest.method());
         request.setUri(httpRequest.uri());
@@ -77,16 +79,14 @@ public class VCRScotchHttpClient {
 
     private HttpResponse<String> send(HttpRequest request, String body) throws IOException, InterruptedException {
 
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-
-        switch (mode) {
+        switch (this.mode) {
             case Recording:
-                return recordResponse(response, body);
+                return sendAndRecordResponse(request, body);
             case Replaying:
-                return populateResponse(response, body);
+                return populateWithCachedResponse(request, body);
             case None:
             default:
-                return response;
+                return client.send(request, HttpResponse.BodyHandlers.ofString());
         }
     }
 
