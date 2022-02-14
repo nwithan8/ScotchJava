@@ -12,11 +12,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Cassette {
+    protected final String cassettePath;
 
-    public static List<HttpInteraction> readCassette(String cassettePath) {
+    public Cassette(String cassettePath) {
+        this.cassettePath = cassettePath;
+    }
+
+    private static List<HttpInteraction> readCassette(Cassette cassette) {
         ArrayList<HttpInteraction> interactions = new ArrayList<HttpInteraction>();
 
-        String jsonString = Files.readFile(cassettePath);
+        String jsonString = Files.readFile(cassette.cassettePath);
         if (jsonString == null) {
             return interactions; // empty list because file doesn't exist or is empty
         }
@@ -29,10 +34,10 @@ public class Cassette {
         return interactions;
     }
 
-    public static void writeCassette(String cassettePath, List<HttpInteraction> interactions) {
+    private static void writeCassette(Cassette cassette, List<HttpInteraction> interactions) {
         Gson gson = new Gson();
         String cassetteString = gson.toJson(interactions);
-        Files.writeFile(cassettePath, cassetteString);
+        Files.writeFile(cassette.cassettePath, cassetteString);
     }
 
     private static int findMatchingInteraction(List<HttpInteraction> existingInteractions,
@@ -47,8 +52,8 @@ public class Cassette {
         return matchingIndex;
     }
 
-    public static void updateInteraction(String cassettePath, HttpInteraction interaction) {
-        List<HttpInteraction> existingInteractions = readCassette(cassettePath);
+    public static void updateInteractionOnCassette(Cassette cassette, HttpInteraction interaction) {
+        List<HttpInteraction> existingInteractions = readCassette(cassette);
         int matchingIndex = findMatchingInteraction(existingInteractions, interaction);
 
         if (matchingIndex < 0) {
@@ -57,11 +62,11 @@ public class Cassette {
             existingInteractions.set(matchingIndex, interaction);
         }
 
-        writeCassette(cassettePath, existingInteractions);
+        writeCassette(cassette, existingInteractions);
     }
 
-    public static HttpInteraction findInteractionMatchingRequest(String cassettePath, Request request) {
-        List<HttpInteraction> existingInteractions = readCassette(cassettePath);
+    public static HttpInteraction findInteractionMatchingRequestOnCassette(Cassette cassette, Request request) {
+        List<HttpInteraction> existingInteractions = readCassette(cassette);
         HttpInteraction interactionToMatch = new HttpInteraction();
         interactionToMatch.setRequest(request);
         int matchingIndex = findMatchingInteraction(existingInteractions, interactionToMatch);
@@ -71,5 +76,13 @@ public class Cassette {
         } else {
             return existingInteractions.get(matchingIndex);
         }
+    }
+
+    public void updateInteraction(HttpInteraction interaction) {
+        updateInteractionOnCassette(this, interaction);
+    }
+
+    public HttpInteraction findInteractionMatchingRequest(Request request) {
+        return findInteractionMatchingRequestOnCassette(this, request);
     }
 }

@@ -1,17 +1,13 @@
 package com.easypost.scotch.clients.apachehttpclient;
 
-import com.easypost.scotch.ScotchMode;
-import com.easypost.scotch.cassettes.Cassette;
+import com.easypost.scotch.VCR;
 import com.easypost.scotch.interaction.Helpers;
 import com.easypost.scotch.interaction.HttpInteraction;
 import com.easypost.scotch.interaction.Request;
-import com.easypost.scotch.interaction.Response;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequest;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.utils.URIUtils;
 import org.apache.http.conn.ClientConnectionManager;
@@ -27,15 +23,11 @@ import java.net.URI;
 public class VCRCloseableHttpClient {
 
     private final CloseableHttpClient client;
-    private final String cassettePath;
-    private final ScotchMode mode;
-    private HttpInteraction cachedInteraction;
+    private final VCR vcr;
 
-    public VCRCloseableHttpClient(String cassettePath, ScotchMode mode) {
+    public VCRCloseableHttpClient(VCR vcr) {
         this.client = HttpClients.createDefault();
-        this.cassettePath = cassettePath;
-        this.mode = mode;
-        this.cachedInteraction = new HttpInteraction(new Request(), new Response());
+        this.vcr = vcr;
     }
 
     private static HttpHost determineTarget(HttpUriRequest request) throws ClientProtocolException {
@@ -55,19 +47,19 @@ public class VCRCloseableHttpClient {
             throws IOException {
         CloseableHttpResponse httpResponse = this.client.execute(target, httpRequest, context);
 
-        HttpInteraction interaction = Helpers.createInteractionFromApacheHttpRequestAndResponse(httpResponse, httpRequest);
+        HttpInteraction interaction =
+                Helpers.createInteractionFromApacheHttpRequestAndResponse(httpResponse, httpRequest);
 
-        Cassette.updateInteraction(this.cassettePath, interaction);
+        this.vcr.tapeOverExistingInteraction(interaction);
 
         return httpResponse;
     }
 
     private CloseableHttpResponse populateWithCachedResponse(HttpHost target, HttpRequest httpRequest,
-                                                             HttpContext context) throws IOException {
+                                                             HttpContext context) {
         Request request = Helpers.createRequestFromApacheHttpRequest(httpRequest);
 
-        HttpInteraction matchingRecordedInteraction =
-                Cassette.findInteractionMatchingRequest(this.cassettePath, request);
+        HttpInteraction matchingRecordedInteraction = this.vcr.seekMatchingInteraction(request);
 
         if (matchingRecordedInteraction == null) {
             return null;
@@ -76,31 +68,26 @@ public class VCRCloseableHttpClient {
         return matchingRecordedInteraction.getResponse().toCloseableHttpResponse();
     }
 
-    public CloseableHttpResponse execute(HttpHost target, HttpRequest request, HttpContext context)
-            throws IOException, ClientProtocolException {
-        switch (this.mode) {
-            case Recording:
-                return sendAndRecordResponse(target, request, context);
-            case Replaying:
-                return populateWithCachedResponse(target, request, context);
-            case None:
-            default:
-                return this.client.execute(target, request, context);
+    public CloseableHttpResponse execute(HttpHost target, HttpRequest request, HttpContext context) throws IOException {
+        if (this.vcr.inRecordMode()) {
+            return sendAndRecordResponse(target, request, context);
+        } else if (this.vcr.inPlaybackMode()) {
+            return populateWithCachedResponse(target, request, context);
+        } else {
+            return this.client.execute(target, request, context);
         }
     }
 
-    public CloseableHttpResponse execute(HttpHost target, HttpRequest request)
-            throws IOException, ClientProtocolException {
+    public CloseableHttpResponse execute(HttpHost target, HttpRequest request) throws IOException {
         return this.execute(target, request, (HttpContext) null);
     }
 
-    public CloseableHttpResponse execute(HttpUriRequest request, HttpContext context)
-            throws IOException, ClientProtocolException {
+    public CloseableHttpResponse execute(HttpUriRequest request, HttpContext context) throws IOException {
         Args.notNull(request, "HTTP request");
         return this.execute(determineTarget(request), request, context);
     }
 
-    public CloseableHttpResponse execute(HttpUriRequest request) throws IOException, ClientProtocolException {
+    public CloseableHttpResponse execute(HttpUriRequest request) throws IOException {
         return this.execute(request, (HttpContext) null);
     }
 

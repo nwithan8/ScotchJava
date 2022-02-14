@@ -1,6 +1,6 @@
 package com.easypost.scotch.clients.httpclient;
 
-import com.easypost.scotch.ScotchMode;
+import com.easypost.scotch.VCR;
 import com.easypost.scotch.interaction.Response;
 
 import java.net.http.HttpClient;
@@ -43,11 +43,11 @@ public class VCRBodyHandler implements HttpResponse.BodyHandler<String> {
      */
     @Override
     public HttpResponse.BodySubscriber<String> apply(HttpResponse.ResponseInfo responseInfo) {
-        if (vcr.mode == ScotchMode.Recording) {
+        if (this.vcr.inRecordMode()) {
             // Record response information if recording
             this.vcr.noteResponseDetails(responseInfo);
             return VCRBodySubscriber.ofRecordingVCR(StandardCharsets.UTF_8, this.vcr);
-        } else if (vcr.mode == ScotchMode.Replaying) {
+        } else if (this.vcr.inPlaybackMode()) {
             // Overwrite response information if replaying
             Response cachedResponse = this.vcr.loadCachedResponse();
             return HttpResponse.BodySubscribers.replacing(cachedResponse.getBody());

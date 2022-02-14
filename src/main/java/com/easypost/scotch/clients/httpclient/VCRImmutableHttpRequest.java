@@ -1,5 +1,7 @@
 package com.easypost.scotch.clients.httpclient;
 
+import com.easypost.scotch.VCR;
+
 import java.net.URI;
 import java.net.http.HttpClient.Version;
 import java.net.http.HttpHeaders;
@@ -8,7 +10,7 @@ import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
 
-final class VCRImmutableHttpRequest extends VCRHttpRequest {
+public final class VCRImmutableHttpRequest extends VCRHttpRequest {
 
     private final VCR vcr;
 

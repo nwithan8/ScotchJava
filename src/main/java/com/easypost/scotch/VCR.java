@@ -1,7 +1,7 @@
-package com.easypost.scotch.clients.httpclient;
+package com.easypost.scotch;
 
-import com.easypost.scotch.ScotchMode;
 import com.easypost.scotch.cassettes.Cassette;
+import com.easypost.scotch.clients.httpclient.VCRImmutableHttpRequest;
 import com.easypost.scotch.interaction.HttpInteraction;
 import com.easypost.scotch.interaction.Request;
 import com.easypost.scotch.interaction.Response;
@@ -9,16 +9,52 @@ import com.easypost.scotch.interaction.Response;
 import java.net.http.HttpResponse;
 
 public class VCR {
-    private final String cassettePath;
-    public final ScotchMode mode;
+    private Cassette cassette;
+    private ScotchMode mode;
+
     private Request currentRequest;
     private Response currentResponse;
 
-    public VCR(String cassettePath, ScotchMode mode) {
-        this.cassettePath = cassettePath;
-        this.mode = mode;
+    public VCR(Cassette cassette) {
+        this.cassette = cassette;
+        this.mode = ScotchMode.None;
         this.currentRequest = new Request();
         this.currentResponse = new Response();
+    }
+
+    public VCR() {
+        this.cassette = null;
+        this.mode = ScotchMode.None;
+        this.currentRequest = new Request();
+        this.currentResponse = new Response();
+    }
+
+    public void insert(Cassette cassette) {
+        this.cassette = cassette;
+    }
+
+    public void eject() {
+        this.cassette = null;
+    }
+
+    public void record() {
+        this.mode = ScotchMode.Recording;
+    }
+
+    public void replay() {
+        this.mode = ScotchMode.Replaying;
+    }
+
+    public void pause() {
+        this.mode = ScotchMode.None;
+    }
+
+    public boolean inRecordMode() {
+        return this.mode == ScotchMode.Recording;
+    }
+
+    public boolean inPlaybackMode() {
+        return this.mode == ScotchMode.Replaying;
     }
 
     // Happens first when making a request
@@ -46,8 +82,9 @@ public class VCR {
     }
 
     public void saveRecording() {
+        assert this.cassette != null;
         HttpInteraction interaction = new HttpInteraction(this.currentRequest, this.currentResponse);
-        Cassette.updateInteraction(this.cassettePath, interaction);
+        Cassette.updateInteractionOnCassette(this.cassette, interaction);
     }
 
     public void clear() {
@@ -56,14 +93,21 @@ public class VCR {
     }
 
     public Response loadCachedResponse() {
-        HttpInteraction matchingInteraction = Cassette.findInteractionMatchingRequest(this.cassettePath, this.currentRequest);
+        HttpInteraction matchingInteraction =
+                Cassette.findInteractionMatchingRequestOnCassette(this.cassette, this.currentRequest);
         if (matchingInteraction == null) {
             return new Response();
         }
         return matchingInteraction.getResponse();
     }
 
-    public HttpResponse<String> parse(HttpResponse<String> httpResponse) {
-        return null;
+    public void tapeOverExistingInteraction(HttpInteraction interaction) {
+        assert this.cassette != null;
+        this.cassette.updateInteraction(interaction);
+    }
+
+    public HttpInteraction seekMatchingInteraction(Request request) {
+        assert this.cassette != null;
+        return this.cassette.findInteractionMatchingRequest(request);
     }
 }

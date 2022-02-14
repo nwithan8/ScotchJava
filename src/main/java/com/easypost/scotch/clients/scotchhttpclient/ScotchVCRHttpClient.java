@@ -1,6 +1,7 @@
 package com.easypost.scotch.clients.scotchhttpclient;
 
 import com.easypost.scotch.ScotchMode;
+import com.easypost.scotch.VCR;
 import com.easypost.scotch.cassettes.Cassette;
 import com.easypost.scotch.interaction.Helpers;
 import com.easypost.scotch.interaction.HttpInteraction;
@@ -19,20 +20,27 @@ import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
 
-public class VCRScotchHttpClient {
+public class ScotchVCRHttpClient {
+
+    public static ScotchVCRHttpClient NewScotchVCRHttpClient(HttpClient httpClient, VCR vcr)
+    {
+        return new ScotchVCRHttpClient(httpClient, vcr);
+    }
+
+    public static ScotchVCRHttpClient NewScotchVCRHttpClient(VCR vcr)
+    {
+        return NewScotchVCRHttpClient(HttpClient.newHttpClient(), vcr);
+    }
 
     // custom HTTP client, utilizes java.net.http.HttpClient internally
 
     private final HttpClient client;
 
-    private final String cassettePath;
+    private final VCR vcr;
 
-    private final ScotchMode mode;
-
-    public VCRScotchHttpClient(HttpClient client, String cassettePath, ScotchMode mode) {
+    public ScotchVCRHttpClient(HttpClient client, VCR vcr) {
         this.client = client;
-        this.cassettePath = cassettePath;
-        this.mode = mode;
+        this.vcr = vcr;
     }
 
     public static Map.Entry<String, String> makeHeaderEntry(String key, String value) {
@@ -45,7 +53,7 @@ public class VCRScotchHttpClient {
 
         HttpInteraction interaction = Helpers.createInteractionFromCustomHttpResponse(httpResponse, requestBody);
 
-        Cassette.updateInteraction(this.cassettePath, interaction);
+        this.vcr.tapeOverExistingInteraction(interaction);
 
         return httpResponse;
     }
@@ -53,8 +61,7 @@ public class VCRScotchHttpClient {
     private HttpResponse<String> populateWithCachedResponse(HttpRequest httpRequest, String requestBody) {
         Request request = Helpers.createRequestFromCustomHttpRequest(httpRequest, requestBody);
 
-        HttpInteraction matchingRecordedInteraction =
-                Cassette.findInteractionMatchingRequest(this.cassettePath, request);
+        HttpInteraction matchingRecordedInteraction = this.vcr.seekMatchingInteraction(request);
 
         if (matchingRecordedInteraction == null) {
             return null;
@@ -74,14 +81,12 @@ public class VCRScotchHttpClient {
     }
 
     private HttpResponse<String> send(HttpRequest request, String body) throws IOException, InterruptedException {
-        switch (this.mode) {
-            case Recording:
-                return sendAndRecordResponse(request, body);
-            case Replaying:
-                return populateWithCachedResponse(request, body);
-            case None:
-            default:
-                return client.send(request, HttpResponse.BodyHandlers.ofString());
+        if (this.vcr.inRecordMode()) {
+            return sendAndRecordResponse(request, body);
+        } else if (this.vcr.inPlaybackMode()) {
+            return populateWithCachedResponse(request, body);
+        } else {
+            return client.send(request, HttpResponse.BodyHandlers.ofString());
         }
     }
 

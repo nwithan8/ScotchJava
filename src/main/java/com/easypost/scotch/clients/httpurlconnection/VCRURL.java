@@ -1,7 +1,8 @@
 package com.easypost.scotch.clients.httpurlconnection;
 
 import com.easypost.scotch.ScotchMode;
-import com.easypost.scotch.interaction.HttpInteraction;
+import com.easypost.scotch.VCR;
+import com.easypost.scotch.cassettes.Cassette;
 
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -13,53 +14,44 @@ public class VCRURL {
 
     private final URL url;
 
-    private final String cassettePath;
+    private final VCR vcr;
 
-    private final ScotchMode mode;
-
-    public VCRURL(String protocol, String host, int port, String file, URLStreamHandler handler, String cassettePath,
-                  ScotchMode mode) throws MalformedURLException {
-        this.cassettePath = cassettePath;
-        this.mode = mode;
+    public VCRURL(String protocol, String host, int port, String file, URLStreamHandler handler, VCR vcr) throws MalformedURLException {
+        this.vcr = vcr;
         this.url = new URL(protocol, host, port, file, handler);
     }
 
-    public VCRURL(String protocol, String host, int port, String file, String cassettePath, ScotchMode mode)
+    public VCRURL(String protocol, String host, int port, String file, VCR vcr)
             throws MalformedURLException {
-        this(protocol, host, port, file, null, cassettePath, mode);
+        this(protocol, host, port, file, null, vcr);
     }
 
-    public VCRURL(String protocol, String host, String file, String cassettePath, ScotchMode mode)
+    public VCRURL(String protocol, String host, String file, VCR vcr)
             throws MalformedURLException {
-        this(protocol, host, -1, file, cassettePath, mode);
+        this(protocol, host, -1, file, vcr);
     }
 
-    public VCRURL(URL context, String spec, URLStreamHandler handler, String cassettePath, ScotchMode mode)
+    public VCRURL(URL context, String spec, URLStreamHandler handler, VCR vcr)
             throws MalformedURLException {
-        this.cassettePath = cassettePath;
-        this.mode = mode;
+        this.vcr = vcr;
         this.url = new URL(context, spec, handler);
     }
 
-    public VCRURL(String spec, String cassettePath, ScotchMode mode) throws MalformedURLException {
-        this(null, spec, cassettePath, mode);
+    public VCRURL(String spec, VCR vcr) throws MalformedURLException {
+        this(null, spec, vcr);
     }
 
-    public VCRURL(URL context, String spec, String cassettePath, ScotchMode mode) throws MalformedURLException {
-        this(context, spec, null, cassettePath, mode);
+    public VCRURL(URL context, String spec, VCR vcr) throws MalformedURLException {
+        this(context, spec, null, vcr);
     }
 
     public VCRHttpUrlConnection openConnection() throws java.io.IOException {
         HttpURLConnection httpURLConnection = (HttpURLConnection) this.url.openConnection();
-        return new VCRHttpUrlConnection(httpURLConnection, this.cassettePath, this.mode);
+        return new VCRHttpUrlConnection(httpURLConnection, this.vcr);
     }
 
-    /*
     public VCRHttpUrlConnection openConnection(Proxy proxy) throws java.io.IOException {
-        VCRHttpUrlConnection connection = (VCRHttpUrlConnection) this.url.openConnection(proxy);
-        connection.setCassettePath(this.cassettePath);
-        connection.setMode(this.mode);
-        return connection;
+        HttpURLConnection httpURLConnection = (HttpURLConnection) this.url.openConnection(proxy);
+        return new VCRHttpUrlConnection(httpURLConnection, this.vcr);
     }
-     */
 }

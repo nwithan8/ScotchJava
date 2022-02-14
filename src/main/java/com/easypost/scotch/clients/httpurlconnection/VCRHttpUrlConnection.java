@@ -1,6 +1,7 @@
 package com.easypost.scotch.clients.httpurlconnection;
 
 import com.easypost.scotch.ScotchMode;
+import com.easypost.scotch.VCR;
 import com.easypost.scotch.cassettes.Cassette;
 import com.easypost.scotch.interaction.Helpers;
 import com.easypost.scotch.interaction.HttpInteraction;
@@ -30,17 +31,15 @@ import java.util.Map;
 public class VCRHttpUrlConnection {
 
     private final HttpURLConnection connection;
-    private final String cassettePath;
-    private final ScotchMode mode;
+    private final VCR vcr;
     private HttpInteraction cachedInteraction;
 
     private String body;
     private String queryString;
 
-    public VCRHttpUrlConnection(HttpURLConnection connection, String cassettePath, ScotchMode mode) {
+    public VCRHttpUrlConnection(HttpURLConnection connection, VCR vcr) {
         this.connection = connection;
-        this.cassettePath = cassettePath;
-        this.mode = mode;
+        this.vcr = vcr;
         this.cachedInteraction = new HttpInteraction(new Request(), new Response());
         this.body = null;
         this.queryString = null;
@@ -97,12 +96,12 @@ public class VCRHttpUrlConnection {
         Response response = createResponse();
 
         this.cachedInteraction = new HttpInteraction(request, response);
-        Cassette.updateInteraction(this.cassettePath, this.cachedInteraction);
+        this.vcr.tapeOverExistingInteraction(this.cachedInteraction);
     }
 
     private boolean loadMatchingInteraction() {
         Request request = createRequest();
-        this.cachedInteraction = Cassette.findInteractionMatchingRequest(this.cassettePath, request);
+        this.cachedInteraction = this.vcr.seekMatchingInteraction(request);
         return this.cachedInteraction != null;
     }
 
@@ -114,7 +113,7 @@ public class VCRHttpUrlConnection {
         DataOutputStream out = new DataOutputStream(this.connection.getOutputStream());
         out.writeBytes(this.queryString);
 
-        if (this.mode == ScotchMode.Recording) {
+        if (this.vcr.inRecordMode()) {
             recordInteraction();
         }
     }
@@ -129,7 +128,7 @@ public class VCRHttpUrlConnection {
             os.write(input, 0, input.length);
         }
 
-        if (this.mode == ScotchMode.Recording) {
+        if (this.vcr.inRecordMode()) {
             recordInteraction();
         }
     }
@@ -154,9 +153,9 @@ public class VCRHttpUrlConnection {
     public void connect() throws IOException {
         // might as well load the cassette if we're replaying, or save if we're recording
         this.connection.connect();
-        if (this.mode == ScotchMode.Recording) {
+        if (this.vcr.inRecordMode()) {
             recordInteraction();
-        } else if (this.mode == ScotchMode.Replaying) {
+        } else if (this.vcr.inPlaybackMode()) {
             loadMatchingInteraction();
         }
     }
@@ -227,7 +226,7 @@ public class VCRHttpUrlConnection {
      * or {@code null} if the key does not exist.
      */
     public String getHeaderFieldKey(int n) {
-        if (this.mode == ScotchMode.Replaying) {
+        if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
                     return this.cachedInteraction.getResponse().getHeaders().keySet().toArray()[n].toString();
@@ -350,7 +349,7 @@ public class VCRHttpUrlConnection {
      * @see java.net.HttpURLConnection#getHeaderFieldKey(int)
      */
     public String getHeaderField(int n) {
-        if (this.mode == ScotchMode.Replaying) {
+        if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
                     return this.cachedInteraction.getResponse().getHeaders().values().toArray()[n].toString();
@@ -402,7 +401,7 @@ public class VCRHttpUrlConnection {
      * @see #setRequestMethod(java.lang.String)
      */
     public String getRequestMethod() {
-        if (this.mode == ScotchMode.Replaying) {
+        if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
                     return this.cachedInteraction.getRequest().getMethod();
@@ -438,7 +437,7 @@ public class VCRHttpUrlConnection {
      */
     public void setRequestMethod(String method) throws ProtocolException {
         this.connection.setRequestMethod(method);
-        if (this.mode == ScotchMode.Recording) {
+        if (this.vcr.inRecordMode()) {
             recordInteraction();
         }
     }
@@ -458,7 +457,7 @@ public class VCRHttpUrlConnection {
      * @throws IOException if an error occurred connecting to the server.
      */
     public int getResponseCode() throws IOException {
-        if (this.mode == ScotchMode.Replaying) {
+        if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
                     return this.cachedInteraction.getResponse().getStatusCode();
@@ -486,7 +485,7 @@ public class VCRHttpUrlConnection {
      * @throws IOException if an error occurred connecting to the server.
      */
     public String getResponseMessage() throws IOException {
-        if (this.mode == ScotchMode.Replaying) {
+        if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
                     return this.cachedInteraction.getResponse().getMessage();
@@ -625,7 +624,7 @@ public class VCRHttpUrlConnection {
      * field.
      */
     public URL getURL() {
-        if (this.mode == ScotchMode.Replaying) {
+        if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
                     return this.cachedInteraction.getResponse().getUri().toURL();
@@ -683,7 +682,7 @@ public class VCRHttpUrlConnection {
      * if there is no such field in the header.
      */
     public String getHeaderField(String name) {
-        if (this.mode == ScotchMode.Replaying) {
+        if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
                     return this.cachedInteraction.getResponse().getHeaders().get(name).toString();
@@ -707,7 +706,7 @@ public class VCRHttpUrlConnection {
      * @since 1.4
      */
     public Map<String, List<String>> getHeaderFields() {
-        if (this.mode == ScotchMode.Replaying) {
+        if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
                     return this.cachedInteraction.getResponse().getHeaders();
@@ -767,7 +766,7 @@ public class VCRHttpUrlConnection {
      * @see java.net.URLConnection#setContentHandlerFactory(java.net.ContentHandlerFactory)
      */
     public Object getContent() throws IOException {
-        if (this.mode == ScotchMode.Replaying) {
+        if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
                     return this.cachedInteraction.getResponse().getBody();
@@ -984,7 +983,7 @@ public class VCRHttpUrlConnection {
      */
     public void setRequestProperty(String key, String value) {
         this.connection.setRequestProperty(key, value);
-        if (this.mode == ScotchMode.Recording) {
+        if (this.vcr.inRecordMode()) {
             recordInteraction();
         }
     }
@@ -1004,7 +1003,7 @@ public class VCRHttpUrlConnection {
      */
     public void addRequestProperty(String key, String value) {
         this.connection.addRequestProperty(key, value);
-        if (this.mode == ScotchMode.Recording) {
+        if (this.vcr.inRecordMode()) {
             recordInteraction();
         }
     }
@@ -1020,7 +1019,7 @@ public class VCRHttpUrlConnection {
      * @see #setRequestProperty(java.lang.String, java.lang.String)
      */
     public String getRequestProperty(String key) {
-        if (this.mode == ScotchMode.Replaying) {
+        if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
                     return this.cachedInteraction.getRequest().getHeaders().get(key).toString();
@@ -1046,7 +1045,7 @@ public class VCRHttpUrlConnection {
      * @since 1.4
      */
     public Map<String, List<String>> getRequestProperties() {
-        if (this.mode == ScotchMode.Replaying) {
+        if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
                     return this.cachedInteraction.getRequest().getHeaders();
