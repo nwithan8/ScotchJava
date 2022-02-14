@@ -1,7 +1,8 @@
 package com.easypost.scotch.clients.scotchhttpclient;
 
-import com.easypost.scotch.cassettes.Cassette;
 import com.easypost.scotch.ScotchMode;
+import com.easypost.scotch.cassettes.Cassette;
+import com.easypost.scotch.interaction.Helpers;
 import com.easypost.scotch.interaction.HttpInteraction;
 import com.easypost.scotch.interaction.Request;
 import com.google.gson.JsonObject;
@@ -17,8 +18,6 @@ import java.nio.file.Path;
 import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
-
-import static com.easypost.scotch.interaction.Helpers.createInteractionFromHttpResponse;
 
 public class VCRScotchHttpClient {
 
@@ -42,10 +41,9 @@ public class VCRScotchHttpClient {
 
     private HttpResponse<String> sendAndRecordResponse(HttpRequest request, String requestBody)
             throws IOException, InterruptedException {
-
         HttpResponse<String> httpResponse = this.client.send(request, HttpResponse.BodyHandlers.ofString());
 
-        HttpInteraction interaction = createInteractionFromHttpResponse(httpResponse, requestBody);
+        HttpInteraction interaction = Helpers.createInteractionFromCustomHttpResponse(httpResponse, requestBody);
 
         Cassette.updateInteraction(this.cassettePath, interaction);
 
@@ -53,12 +51,10 @@ public class VCRScotchHttpClient {
     }
 
     private HttpResponse<String> populateWithCachedResponse(HttpRequest httpRequest, String requestBody) {
-        Request request = new Request();
-        request.setMethod(httpRequest.method());
-        request.setUri(httpRequest.uri());
-        request.setBody(requestBody);
+        Request request = Helpers.createRequestFromCustomHttpRequest(httpRequest, requestBody);
 
-        HttpInteraction matchingRecordedInteraction = Cassette.findInteractionMatchingRequest(this.cassettePath, request);
+        HttpInteraction matchingRecordedInteraction =
+                Cassette.findInteractionMatchingRequest(this.cassettePath, request);
 
         if (matchingRecordedInteraction == null) {
             return null;
@@ -78,7 +74,6 @@ public class VCRScotchHttpClient {
     }
 
     private HttpResponse<String> send(HttpRequest request, String body) throws IOException, InterruptedException {
-
         switch (this.mode) {
             case Recording:
                 return sendAndRecordResponse(request, body);
@@ -104,7 +99,8 @@ public class VCRScotchHttpClient {
     }
 
     private HttpResponse<String> post(URI uri, List<Map.Entry<String, String>> headers,
-                                      HttpRequest.BodyPublisher bodyPublisher, String body) throws IOException, InterruptedException {
+                                      HttpRequest.BodyPublisher bodyPublisher, String body)
+            throws IOException, InterruptedException {
         HttpRequest.Builder requestBuilder = buildBaseRequest(uri, headers);
 
         HttpRequest request = requestBuilder.POST(bodyPublisher).build();
@@ -185,7 +181,8 @@ public class VCRScotchHttpClient {
     }
 
     private HttpResponse<String> put(URI uri, List<Map.Entry<String, String>> headers,
-                                    HttpRequest.BodyPublisher bodyPublisher, String body) throws IOException, InterruptedException {
+                                     HttpRequest.BodyPublisher bodyPublisher, String body)
+            throws IOException, InterruptedException {
         HttpRequest.Builder requestBuilder = buildBaseRequest(uri, headers);
 
         HttpRequest request = requestBuilder.PUT(bodyPublisher).build();

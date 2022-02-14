@@ -1,6 +1,7 @@
 package com.easypost.scotch.interaction;
 
 import java.net.URI;
+import java.net.http.HttpHeaders;
 import java.util.List;
 import java.util.Map;
 
@@ -44,6 +45,10 @@ public class Request {
 
     public void setHeaders(Map<String, List<String>> headers) {
         this.headers = headers;
+    }
+
+    public void setHeaders(HttpHeaders headers) {
+        this.headers = headers.map();
     }
 
     public String getBody() {

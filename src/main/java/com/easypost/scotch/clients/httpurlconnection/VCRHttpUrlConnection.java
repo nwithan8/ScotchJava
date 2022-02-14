@@ -2,6 +2,7 @@ package com.easypost.scotch.clients.httpurlconnection;
 
 import com.easypost.scotch.ScotchMode;
 import com.easypost.scotch.cassettes.Cassette;
+import com.easypost.scotch.interaction.Helpers;
 import com.easypost.scotch.interaction.HttpInteraction;
 import com.easypost.scotch.interaction.Request;
 import com.easypost.scotch.interaction.Response;
@@ -81,7 +82,7 @@ public class VCRHttpUrlConnection {
             response.setStatusCode(this.connection.getResponseCode());
             response.setMessage(this.connection.getResponseMessage());
             response.setUri(this.connection.getURL().toURI());
-            response.setBody(readResponseBody());
+            response.setBody(Helpers.readBodyFromInputStream(this.connection.getInputStream()));
             response.setHeaders(this.connection.getHeaderFields());
         } catch (URISyntaxException | IOException ignored) {
         }
