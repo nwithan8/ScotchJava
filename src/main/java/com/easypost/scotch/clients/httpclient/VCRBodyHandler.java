@@ -45,7 +45,7 @@ public class VCRBodyHandler implements HttpResponse.BodyHandler<String> {
     public HttpResponse.BodySubscriber<String> apply(HttpResponse.ResponseInfo responseInfo) {
         if (vcr.mode == ScotchMode.Recording) {
             // Record response information if recording
-            this.vcr.initTrackedResponse(responseInfo);
+            this.vcr.noteResponseDetails(responseInfo);
             return VCRBodySubscriber.ofRecordingVCR(StandardCharsets.UTF_8, this.vcr);
         } else if (vcr.mode == ScotchMode.Replaying) {
             // Overwrite response information if replaying
@@ -104,7 +104,7 @@ public class VCRBodyHandler implements HttpResponse.BodyHandler<String> {
                 @Override
                 public CompletionStage<String> getBody() {
                     try {
-                        vcr.addBodyToTrackedResponse(result.get());
+                        vcr.noteResponseBody(result.get());
                         vcr.saveRecording();
                     } catch (InterruptedException | ExecutionException e) {
                         e.printStackTrace();

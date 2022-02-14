@@ -33,6 +33,7 @@ public class VCRHttpRequestBuilderImpl implements VCRHttpRequest.Builder {
         this.version = Optional.empty();
 
         this.vcr = vcr;
+        this.vcr.clear(); // reset any cached request and response
     }
 
     public VCRHttpRequestBuilderImpl(VCR vcr) {
@@ -146,7 +147,7 @@ public class VCRHttpRequestBuilderImpl implements VCRHttpRequest.Builder {
 
     boolean expectContinue() { return expectContinue; }
 
-    HttpRequest.BodyPublisher  bodyPublisher() { return bodyPublisher; }
+    HttpRequest.BodyPublisher bodyPublisher() { return bodyPublisher; }
 
     Optional<HttpClient.Version> version() { return version; }
 
@@ -154,7 +155,8 @@ public class VCRHttpRequestBuilderImpl implements VCRHttpRequest.Builder {
         return method0("GET", null);
     }
 
-    public VCRHttpRequest.Builder POST(HttpRequest.BodyPublisher  body) {
+    public VCRHttpRequest.Builder POST(VCRHttpRequest.BodyPublisher body) {
+        this.vcr.noteRequestBody(body.contents);
         return method0("POST", body);
     }
 
@@ -162,15 +164,15 @@ public class VCRHttpRequestBuilderImpl implements VCRHttpRequest.Builder {
         return method0("DELETE", null);
     }
 
-    public VCRHttpRequest.Builder PUT(HttpRequest.BodyPublisher  body) {
+    public VCRHttpRequest.Builder PUT(VCRHttpRequest.BodyPublisher body) {
         return method0("PUT", body);
     }
 
-    private VCRHttpRequest.Builder method0(String method, HttpRequest.BodyPublisher body) {
+    private VCRHttpRequest.Builder method0(String method, VCRHttpRequest.BodyPublisher body) {
         assert method != null;
         assert !method.isEmpty();
         this.method = method;
-        this.bodyPublisher = body;
+        this.bodyPublisher = body.bodyPublisher;
         return this;
     }
 

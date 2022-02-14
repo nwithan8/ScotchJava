@@ -1,5 +1,9 @@
 package com.easypost.scotch.clients.httpclient;
 
+import jdk.internal.net.http.HttpRequestImpl;
+import jdk.internal.net.http.common.Utils;
+
+import java.net.http.HttpHeaders;
 import java.util.Collections;
 import java.util.Set;
 import java.util.TreeSet;
@@ -11,10 +15,29 @@ public final class VCRUtils {
     private static final boolean[] tchar      = new boolean[256];
     private static final boolean[] fieldvchar = new boolean[256];
 
+    private static final String HEADER_CONNECTION = "Connection";
+    private static final String HEADER_UPGRADE    = "Upgrade";
+
     private static final Set<String> DISALLOWED_HEADERS_SET = getDisallowedHeaders();
 
     public static final BiPredicate<String, String>
             ALLOWED_HEADERS = (header, unused) -> !DISALLOWED_HEADERS_SET.contains(header);
+
+    public static final BiPredicate<String, String> VALIDATE_USER_HEADER =
+            (name, value) -> {
+                assert name != null : "null header name";
+                assert value != null : "null header value";
+                if (!isValidName(name)) {
+                    throw newIAE("invalid header name: \"%s\"", name);
+                }
+                if (!Utils.ALLOWED_HEADERS.test(name, null)) {
+                    throw newIAE("restricted header name: \"%s\"", name);
+                }
+                if (!isValidValue(value)) {
+                    throw newIAE("invalid header value for %s: \"%s\"", name, value);
+                }
+                return true;
+            };
 
     private static Set<String> getDisallowedHeaders() {
         Set<String> headers = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
@@ -74,4 +97,11 @@ public final class VCRUtils {
     public static IllegalArgumentException newIAE(String message, Object... args) {
         return new IllegalArgumentException(format(message, args));
     }
+
+    public static final void setWebSocketUpgradeHeaders(VCRHttpRequestImpl request) {
+        request.setSystemHeader(HEADER_UPGRADE, "websocket");
+        request.setSystemHeader(HEADER_CONNECTION, "Upgrade");
+    }
+
+    public record ProxyHeaders(HttpHeaders userHeaders, HttpHeaders systemHeaders) {}
 }

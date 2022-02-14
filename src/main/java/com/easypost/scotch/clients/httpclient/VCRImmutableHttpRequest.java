@@ -32,9 +32,8 @@ final class VCRImmutableHttpRequest extends VCRHttpRequest {
         this.timeout = Optional.ofNullable(builder.timeout());
         this.version = Objects.requireNonNull(builder.version());
 
-        // TODO: record cassette here
         this.vcr = vcr;
-        vcr.initTrackedRequest(this);
+        vcr.noteRequestDetails(this);
     }
 
     @Override
@@ -47,7 +46,9 @@ final class VCRImmutableHttpRequest extends VCRHttpRequest {
     public HttpHeaders headers() {return headers;}
 
     @Override
-    public Optional<BodyPublisher> bodyPublisher() {return requestPublisher;}
+    public Optional<HttpRequest.BodyPublisher> bodyPublisher() {
+        return requestPublisher;
+    }
 
     @Override
     public boolean expectContinue() {return expectContinue;}
