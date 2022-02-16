@@ -38,6 +38,9 @@ public class Helpers {
     }
 
     public static InputStream copyInputStream(InputStream stream) {
+        if (stream == null) {
+            return null;
+        }
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             stream.transferTo(baos);
@@ -48,6 +51,9 @@ public class Helpers {
     }
 
     public static String readBodyFromInputStream(InputStream stream) {
+        if (stream == null) {
+            return null;
+        }
         InputStream copy = copyInputStream(stream);
         String body = null;
         try {

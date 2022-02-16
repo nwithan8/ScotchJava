@@ -588,6 +588,9 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
     public InputStream getErrorStream() {
         // ignore for cassette
         cacheAndRecordIfNeeded();
+        if (this.responseErrorStream == null) {
+            return null;
+        }
         try {
             this.responseErrorStream.reset();
         } catch (IOException ignored) {
