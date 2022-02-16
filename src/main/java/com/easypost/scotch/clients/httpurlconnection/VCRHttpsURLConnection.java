@@ -157,7 +157,10 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
             this.responseResponseCode = this.connection.getResponseCode();
             this.responseResponseMessage = this.connection.getResponseMessage();
             this.responseHeaderFields = this.connection.getHeaderFields();
-            this.responseInputStream = Helpers.copyInputStream(this.connection.getInputStream());
+            try {
+                this.responseInputStream = Helpers.copyInputStream(this.connection.getInputStream());
+            } catch (IOException ignored) {
+            }
             this.responseErrorStream = Helpers.copyInputStream(this.connection.getErrorStream());
             this.responseCached = true;
         } catch (Exception ignored) {
