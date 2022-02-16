@@ -155,19 +155,24 @@ public class VCRHttpURLConnection extends HttpURLConnection {
             this.responseResponseMessage = this.connection.getResponseMessage();
             this.responseHeaderFields = this.connection.getHeaderFields();
             try {
-                this.responseInputStream = Helpers.copyInputStream(this.connection.getInputStream());
-            } catch (IOException ignored) {
+                InputStream stream = this.connection.getInputStream();
+                this.responseInputStream = Helpers.copyInputStream(stream);
+            } catch (NullPointerException | IOException ignored) {
             }
-            this.responseErrorStream = Helpers.copyInputStream(this.connection.getErrorStream());
+            try {
+                InputStream stream = this.connection.getErrorStream();
+                this.responseErrorStream = Helpers.copyInputStream(stream);
+            } catch (NullPointerException ignored) {
+            }
             this.responseCached = true;
-        } catch (Exception ignored) {
+        } catch (IOException ignored) {
         }
     }
 
     private void cacheAndRecordIfNeeded() {
         cacheHttpRequest();
-        cacheHttpResponse();
         if (this.vcr.inRecordMode()) {
+            cacheHttpResponse();
             recordInteraction();
         }
     }
@@ -198,7 +203,9 @@ public class VCRHttpURLConnection extends HttpURLConnection {
     @Override
     public void disconnect() {
         // might as well record if we're disconnecting
-        recordInteraction();
+        if (this.vcr.inRecordMode()) {
+            recordInteraction();
+        }
         this.connection.disconnect();
         clearCache();
     }
@@ -587,10 +594,10 @@ public class VCRHttpURLConnection extends HttpURLConnection {
     @Override
     public InputStream getErrorStream() {
         // ignore for cassette
+        cacheAndRecordIfNeeded();
         if (this.responseErrorStream == null) {
             return null;
         }
-        cacheAndRecordIfNeeded();
         try {
             this.responseErrorStream.reset();
         } catch (IOException ignored) {

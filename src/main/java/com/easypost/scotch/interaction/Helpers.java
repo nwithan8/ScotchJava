@@ -42,8 +42,17 @@ public class Helpers {
             return null;
         }
         try {
+            stream.reset();
+        } catch (IOException ignored) {
+        }
+        try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            stream.transferTo(baos);
+            byte[] buffer = new byte[1024];
+            int len;
+            while ((len = stream.read(buffer)) > -1 ) {
+                baos.write(buffer, 0, len);
+            }
+            baos.flush();
             return new ByteArrayInputStream(baos.toByteArray());
         } catch (IOException ignored) {
             return new ByteArrayInputStream(new byte[] {});
