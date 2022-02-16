@@ -1,13 +1,12 @@
 import com.easypost.scotch.VCR;
 import com.easypost.scotch.clients.httpurlconnection.VCRHttpUrlConnection;
-import com.easypost.scotch.clients.httpurlconnection.VCRHttpsUrlConnection;
+import com.easypost.scotch.clients.httpurlconnection.VCRHttpsURLConnection;
 import com.easypost.scotch.clients.httpurlconnection.VCRURL;
 import org.junit.Test;
 
 import javax.net.ssl.HttpsURLConnection;
 import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 
 public class TestHttpUrlConnection {
 
@@ -50,7 +49,7 @@ public class TestHttpUrlConnection {
         System.out.println(conn.getContent());
         System.out.println(connCast.getContent());
 
-        VCRHttpsUrlConnection sConn = url.openConnectionSecure();
+        VCRHttpsURLConnection sConn = url.openConnectionSecure();
         sConn.setRequestMethod("DELETE");
         HttpsURLConnection sConnCast = (HttpsURLConnection) sConn;
 

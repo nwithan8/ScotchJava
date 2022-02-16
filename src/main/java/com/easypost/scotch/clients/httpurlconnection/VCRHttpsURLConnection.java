@@ -30,7 +30,7 @@ import java.security.cert.Certificate;
 import java.util.List;
 import java.util.Map;
 
-public class VCRHttpsUrlConnection extends HttpsURLConnection {
+public class VCRHttpsURLConnection extends HttpsURLConnection {
 
     private final HttpsURLConnection connection;
     private final VCR vcr;
@@ -39,7 +39,7 @@ public class VCRHttpsUrlConnection extends HttpsURLConnection {
     private String body;
     private String queryString;
 
-    public VCRHttpsUrlConnection(URL url, VCR vcr) throws IOException {
+    public VCRHttpsURLConnection(URL url, VCR vcr) throws IOException {
         // this super is not used
         super(url);
         this.connection = (HttpsURLConnection) url.openConnection();
@@ -49,7 +49,7 @@ public class VCRHttpsUrlConnection extends HttpsURLConnection {
         this.queryString = null;
     }
 
-    public VCRHttpsUrlConnection(URL url, VCR vcr, Proxy proxy) throws IOException {
+    public VCRHttpsURLConnection(URL url, VCR vcr, Proxy proxy) throws IOException {
         // this super is not used
         super(url);
         this.connection = (HttpsURLConnection) url.openConnection(proxy);

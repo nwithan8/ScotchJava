@@ -54,11 +54,11 @@ public class VCRURL {
         return new VCRHttpUrlConnection(this.url, this.vcr, proxy);
     }
 
-    public VCRHttpsUrlConnection openConnectionSecure() throws IOException {
-        return new VCRHttpsUrlConnection(this.url, this.vcr);
+    public VCRHttpsURLConnection openConnectionSecure() throws IOException {
+        return new VCRHttpsURLConnection(this.url, this.vcr);
     }
 
-    public VCRHttpsUrlConnection openConnectionSecure(Proxy proxy) throws IOException {
-        return new VCRHttpsUrlConnection(this.url, this.vcr, proxy);
+    public VCRHttpsURLConnection openConnectionSecure(Proxy proxy) throws IOException {
+        return new VCRHttpsURLConnection(this.url, this.vcr, proxy);
     }
 }
