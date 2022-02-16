@@ -1,5 +1,7 @@
 package com.easypost.scotch.clients.httpclient;
 
+import com.easypost.scotch.tools.VCRUtils;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;

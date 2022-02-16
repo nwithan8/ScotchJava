@@ -1,8 +1,6 @@
 package com.easypost.scotch.clients.httpurlconnection;
 
-import com.easypost.scotch.ScotchMode;
 import com.easypost.scotch.VCR;
-import com.easypost.scotch.cassettes.Cassette;
 import com.easypost.scotch.interaction.Helpers;
 import com.easypost.scotch.interaction.HttpInteraction;
 import com.easypost.scotch.interaction.Request;
@@ -18,6 +16,7 @@ import java.net.Authenticator;
 import java.net.HttpRetryException;
 import java.net.HttpURLConnection;
 import java.net.ProtocolException;
+import java.net.Proxy;
 import java.net.SocketPermission;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -28,7 +27,7 @@ import java.security.Permission;
 import java.util.List;
 import java.util.Map;
 
-public class VCRHttpUrlConnection {
+public class VCRHttpUrlConnection extends HttpURLConnection {
 
     private final HttpURLConnection connection;
     private final VCR vcr;
@@ -37,8 +36,20 @@ public class VCRHttpUrlConnection {
     private String body;
     private String queryString;
 
-    public VCRHttpUrlConnection(HttpURLConnection connection, VCR vcr) {
-        this.connection = connection;
+    public VCRHttpUrlConnection(URL url, VCR vcr) throws IOException {
+        // this super is not used
+        super(url);
+        this.connection = (HttpURLConnection) url.openConnection();
+        this.vcr = vcr;
+        this.cachedInteraction = new HttpInteraction(new Request(), new Response());
+        this.body = null;
+        this.queryString = null;
+    }
+
+    public VCRHttpUrlConnection(URL url, VCR vcr, Proxy proxy) throws IOException {
+        // this super is not used
+        super(url);
+        this.connection = (HttpURLConnection) url.openConnection(proxy);
         this.vcr = vcr;
         this.cachedInteraction = new HttpInteraction(new Request(), new Response());
         this.body = null;

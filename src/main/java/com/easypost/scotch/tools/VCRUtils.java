@@ -1,7 +1,6 @@
-package com.easypost.scotch.clients.httpclient;
+package com.easypost.scotch.tools;
 
-import jdk.internal.net.http.HttpRequestImpl;
-import jdk.internal.net.http.common.Utils;
+import com.easypost.scotch.clients.httpclient.VCRHttpRequestImpl;
 
 import java.net.http.HttpHeaders;
 import java.util.Collections;
@@ -30,7 +29,7 @@ public final class VCRUtils {
                 if (!isValidName(name)) {
                     throw newIAE("invalid header name: \"%s\"", name);
                 }
-                if (!Utils.ALLOWED_HEADERS.test(name, null)) {
+                if (!ALLOWED_HEADERS.test(name, null)) {
                     throw newIAE("restricted header name: \"%s\"", name);
                 }
                 if (!isValidValue(value)) {

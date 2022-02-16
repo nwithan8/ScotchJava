@@ -45,13 +45,16 @@ public class VCRURL {
         this(context, spec, null, vcr);
     }
 
+    public VCRURL(URL context, VCR vcr) {
+        this.vcr = vcr;
+        this.url = context;
+    }
+
     public VCRHttpUrlConnection openConnection() throws java.io.IOException {
-        HttpURLConnection httpURLConnection = (HttpURLConnection) this.url.openConnection();
-        return new VCRHttpUrlConnection(httpURLConnection, this.vcr);
+        return new VCRHttpUrlConnection(this.url, this.vcr);
     }
 
     public VCRHttpUrlConnection openConnection(Proxy proxy) throws java.io.IOException {
-        HttpURLConnection httpURLConnection = (HttpURLConnection) this.url.openConnection(proxy);
-        return new VCRHttpUrlConnection(httpURLConnection, this.vcr);
+        return new VCRHttpUrlConnection(this.url, this.vcr, proxy);
     }
 }
