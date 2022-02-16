@@ -1,10 +1,8 @@
 package com.easypost.scotch.clients.httpurlconnection;
 
-import com.easypost.scotch.ScotchMode;
 import com.easypost.scotch.VCR;
-import com.easypost.scotch.cassettes.Cassette;
 
-import java.net.HttpURLConnection;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.Proxy;
 import java.net.URL;
@@ -16,23 +14,21 @@ public class VCRURL {
 
     private final VCR vcr;
 
-    public VCRURL(String protocol, String host, int port, String file, URLStreamHandler handler, VCR vcr) throws MalformedURLException {
+    public VCRURL(String protocol, String host, int port, String file, URLStreamHandler handler, VCR vcr)
+            throws MalformedURLException {
         this.vcr = vcr;
         this.url = new URL(protocol, host, port, file, handler);
     }
 
-    public VCRURL(String protocol, String host, int port, String file, VCR vcr)
-            throws MalformedURLException {
+    public VCRURL(String protocol, String host, int port, String file, VCR vcr) throws MalformedURLException {
         this(protocol, host, port, file, null, vcr);
     }
 
-    public VCRURL(String protocol, String host, String file, VCR vcr)
-            throws MalformedURLException {
+    public VCRURL(String protocol, String host, String file, VCR vcr) throws MalformedURLException {
         this(protocol, host, -1, file, vcr);
     }
 
-    public VCRURL(URL context, String spec, URLStreamHandler handler, VCR vcr)
-            throws MalformedURLException {
+    public VCRURL(URL context, String spec, URLStreamHandler handler, VCR vcr) throws MalformedURLException {
         this.vcr = vcr;
         this.url = new URL(context, spec, handler);
     }
@@ -56,5 +52,13 @@ public class VCRURL {
 
     public VCRHttpUrlConnection openConnection(Proxy proxy) throws java.io.IOException {
         return new VCRHttpUrlConnection(this.url, this.vcr, proxy);
+    }
+
+    public VCRHttpsUrlConnection openConnectionSecure() throws IOException {
+        return new VCRHttpsUrlConnection(this.url, this.vcr);
+    }
+
+    public VCRHttpsUrlConnection openConnectionSecure(Proxy proxy) throws IOException {
+        return new VCRHttpsUrlConnection(this.url, this.vcr, proxy);
     }
 }

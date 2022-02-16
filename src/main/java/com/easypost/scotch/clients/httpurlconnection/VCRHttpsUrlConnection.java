@@ -6,6 +6,8 @@ import com.easypost.scotch.interaction.HttpInteraction;
 import com.easypost.scotch.interaction.Request;
 import com.easypost.scotch.interaction.Response;
 
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLPeerUnverifiedException;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -24,32 +26,33 @@ import java.net.URLEncoder;
 import java.net.UnknownServiceException;
 import java.nio.charset.StandardCharsets;
 import java.security.Permission;
+import java.security.cert.Certificate;
 import java.util.List;
 import java.util.Map;
 
-public class VCRHttpUrlConnection extends HttpURLConnection {
+public class VCRHttpsUrlConnection extends HttpsURLConnection {
 
-    private final HttpURLConnection connection;
+    private final HttpsURLConnection connection;
     private final VCR vcr;
     private HttpInteraction cachedInteraction;
 
     private String body;
     private String queryString;
 
-    public VCRHttpUrlConnection(URL url, VCR vcr) throws IOException {
+    public VCRHttpsUrlConnection(URL url, VCR vcr) throws IOException {
         // this super is not used
         super(url);
-        this.connection = (HttpURLConnection) url.openConnection();
+        this.connection = (HttpsURLConnection) url.openConnection();
         this.vcr = vcr;
         this.cachedInteraction = new HttpInteraction(new Request(), new Response());
         this.body = null;
         this.queryString = null;
     }
 
-    public VCRHttpUrlConnection(URL url, VCR vcr, Proxy proxy) throws IOException {
+    public VCRHttpsUrlConnection(URL url, VCR vcr, Proxy proxy) throws IOException {
         // this super is not used
         super(url);
-        this.connection = (HttpURLConnection) url.openConnection(proxy);
+        this.connection = (HttpsURLConnection) url.openConnection(proxy);
         this.vcr = vcr;
         this.cachedInteraction = new HttpInteraction(new Request(), new Response());
         this.body = null;
@@ -160,7 +163,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
         return body;
     }
 
-    @Override
     public void connect() throws IOException {
         // might as well load the cassette if we're replaying, or save if we're recording
         this.connection.connect();
@@ -171,24 +173,22 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
         }
     }
 
-    @Override
     public void disconnect() {
         // might as well record if we're connecting
         this.connection.disconnect();
         recordInteraction();
     }
 
-    @Override
     public boolean usingProxy() {
         return this.connection.usingProxy();
     }
 
     /**
-     * Supplies an {@link java.net.Authenticator Authenticator} to be used
+     * Supplies an {@link Authenticator Authenticator} to be used
      * when authentication is requested through the HTTP protocol for
      * this {@code VCRHttpUrlConnection}.
      * If no authenticator is supplied, the
-     * {@linkplain Authenticator#setDefault(java.net.Authenticator) default
+     * {@linkplain Authenticator#setDefault(Authenticator) default
      * authenticator} will be used.
      *
      * @param auth The {@code Authenticator} that should be used by this
@@ -222,7 +222,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * sharing that same {@code Authenticator}.
      * @since 9
      */
-    @Override
     public void setAuthenticator(Authenticator auth) {
         // ignore for cassette
         this.connection.setAuthenticator(auth);
@@ -239,7 +238,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @return the key for the {@code n}<sup>th</sup> header field,
      * or {@code null} if the key does not exist.
      */
-    @Override
     public String getHeaderFieldKey(int n) {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -284,7 +282,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @see #setChunkedStreamingMode(int)
      * @since 1.5
      */
-    @Override
     public void setFixedLengthStreamingMode(int contentLength) {
         // ignore for cassette
         this.connection.setFixedLengthStreamingMode(contentLength);
@@ -316,7 +313,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @throws IllegalArgumentException if a content length less than zero is specified.
      * @since 1.7
      */
-    @Override
     public void setFixedLengthStreamingMode(long contentLength) {
         // ignore for cassette
         this.connection.setFixedLengthStreamingMode(contentLength);
@@ -345,7 +341,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @see #setFixedLengthStreamingMode(int)
      * @since 1.5
      */
-    @Override
     public void setChunkedStreamingMode(int chunklen) {
         // ignore for cassette
         this.connection.setChunkedStreamingMode(chunklen);
@@ -364,9 +359,8 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @param n an index, where {@code n>=0}.
      * @return the value of the {@code n}<sup>th</sup> header field,
      * or {@code null} if the value does not exist.
-     * @see java.net.HttpURLConnection#getHeaderFieldKey(int)
+     * @see HttpURLConnection#getHeaderFieldKey(int)
      */
-    @Override
     public String getHeaderField(int n) {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -390,7 +384,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @see #setInstanceFollowRedirects(boolean)
      * @since 1.3
      */
-    @Override
     public boolean getInstanceFollowRedirects() {
         // ignore for cassette
         return this.connection.getInstanceFollowRedirects();
@@ -409,7 +402,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @see #getInstanceFollowRedirects
      * @since 1.3
      */
-    @Override
     public void setInstanceFollowRedirects(boolean followRedirects) {
         // ignore for cassette
         this.connection.setInstanceFollowRedirects(followRedirects);
@@ -419,9 +411,8 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * Get the request method.
      *
      * @return the HTTP request method
-     * @see #setRequestMethod(java.lang.String)
+     * @see #setRequestMethod(String)
      */
-    @Override
     public String getRequestMethod() {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -457,7 +448,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      *                           NetPermission is not granted.
      * @see #getRequestMethod()
      */
-    @Override
     public void setRequestMethod(String method) throws ProtocolException {
         this.connection.setRequestMethod(method);
         if (this.vcr.inRecordMode()) {
@@ -479,7 +469,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @return the HTTP Status-Code, or -1
      * @throws IOException if an error occurred connecting to the server.
      */
-    @Override
     public int getResponseCode() throws IOException {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -508,7 +497,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @return the HTTP response message, or {@code null}
      * @throws IOException if an error occurred connecting to the server.
      */
-    @Override
     public String getResponseMessage() throws IOException {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -533,7 +521,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @throws IOException if an error occurs while computing
      *                     the permission.
      */
-    @Override
     public Permission getPermission() throws IOException {
         // ignore for cassette
         return this.connection.getPermission();
@@ -557,7 +544,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * errors, the connection is not connected or the server sent no
      * useful data.
      */
-    @Override
     public InputStream getErrorStream() {
         // ignore for cassette
         return this.connection.getErrorStream();
@@ -575,7 +561,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @see #connect()
      * @since 1.5
      */
-    @Override
     public int getConnectTimeout() {
         // ignore for cassette
         return this.connection.getConnectTimeout();
@@ -600,7 +585,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @see #connect()
      * @since 1.5
      */
-    @Override
     public void setConnectTimeout(int timeout) {
         // ignore for cassette
         this.connection.setConnectTimeout(timeout);
@@ -616,7 +600,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @see InputStream#read()
      * @since 1.5
      */
-    @Override
     public int getReadTimeout() {
         // ignore for cassette
         return this.connection.getReadTimeout();
@@ -641,7 +624,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @see InputStream#read()
      * @since 1.5
      */
-    @Override
     public void setReadTimeout(int timeout) {
         // ignore for cassette
         this.connection.setReadTimeout(timeout);
@@ -654,7 +636,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @return the value of this {@code URLConnection}'s {@code URL}
      * field.
      */
-    @Override
     public URL getURL() {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -674,9 +655,8 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      *
      * @return the content type of the resource that the URL references,
      * or {@code null} if not known.
-     * @see java.net.URLConnection#getHeaderField(java.lang.String)
+     * @see java.net.URLConnection#getHeaderField(String)
      */
-    @Override
     public String getContentType() {
         return getHeaderField("content-type");
     }
@@ -686,9 +666,8 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      *
      * @return the content encoding of the resource that the URL references,
      * or {@code null} if not known.
-     * @see java.net.URLConnection#getHeaderField(java.lang.String)
+     * @see java.net.URLConnection#getHeaderField(String)
      */
-    @Override
     public String getContentEncoding() {
         return getHeaderField("content-encoding");
     }
@@ -699,9 +678,8 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @return the expiration date of the resource that this URL references,
      * or 0 if not known. The value is the number of milliseconds since
      * January 1, 1970 GMT.
-     * @see java.net.URLConnection#getHeaderField(java.lang.String)
+     * @see java.net.URLConnection#getHeaderField(String)
      */
-    @Override
     public long getExpiration() {
         return this.connection.getExpiration();
     }
@@ -716,7 +694,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @return the value of the named header field, or {@code null}
      * if there is no such field in the header.
      */
-    @Override
     public String getHeaderField(String name) {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -741,7 +718,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @return a Map of header fields
      * @since 1.4
      */
-    @Override
     public Map<String, List<String>> getHeaderFields() {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -798,11 +774,10 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      *                                 getting the content.
      * @throws UnknownServiceException if the protocol does not support
      *                                 the content type.
-     * @see java.net.ContentHandlerFactory#createContentHandler(java.lang.String)
+     * @see java.net.ContentHandlerFactory#createContentHandler(String)
      * @see java.net.URLConnection#getContentType()
      * @see java.net.URLConnection#setContentHandlerFactory(java.net.ContentHandlerFactory)
      */
-    @Override
     public Object getContent() throws IOException {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -822,7 +797,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      *
      * @return a string representation of this {@code URLConnection}.
      */
-    @Override
     public String toString() {
         // ignore for cassette
         return this.connection.toString();
@@ -836,7 +810,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * {@code doInput} flag.
      * @see #setDoInput(boolean)
      */
-    @Override
     public boolean getDoInput() {
         // ignore for cassette
         return this.connection.getDoInput();
@@ -854,7 +827,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @throws IllegalStateException if already connected
      * @see #getDoInput()
      */
-    @Override
     public void setDoInput(boolean doinput) {
         // ignore for cassette
         this.connection.setDoInput(doinput);
@@ -868,7 +840,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * {@code doOutput} flag.
      * @see #setDoOutput(boolean)
      */
-    @Override
     public boolean getDoOutput() {
         // ignore for cassette
         return this.connection.getDoOutput();
@@ -886,7 +857,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @throws IllegalStateException if already connected
      * @see #getDoOutput()
      */
-    @Override
     public void setDoOutput(boolean dooutput) {
         // ignore for cassette
         if (this.connection.getDoOutput() != dooutput) {
@@ -902,7 +872,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * this object.
      * @see #setAllowUserInteraction(boolean)
      */
-    @Override
     public boolean getAllowUserInteraction() {
         // ignore for cassette
         return this.connection.getAllowUserInteraction();
@@ -916,7 +885,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @throws IllegalStateException if already connected
      * @see #getAllowUserInteraction()
      */
-    @Override
     public void setAllowUserInteraction(boolean allowuserinteraction) {
         // ignore for cassette
         this.connection.setAllowUserInteraction(allowuserinteraction);
@@ -930,7 +898,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * {@code useCaches} field.
      * @see #setUseCaches(boolean)
      */
-    @Override
     public boolean getUseCaches() {
         // ignore for cassette
         return this.connection.getUseCaches();
@@ -953,7 +920,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @throws IllegalStateException if already connected
      * @see #getUseCaches()
      */
-    @Override
     public void setUseCaches(boolean usecaches) {
         // ignore for cassette
         this.connection.setUseCaches(usecaches);
@@ -965,7 +931,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @return the value of this object's {@code ifModifiedSince} field.
      * @see #setIfModifiedSince(long)
      */
-    @Override
     public long getIfModifiedSince() {
         // ignore for cassette
         return this.connection.getIfModifiedSince();
@@ -979,7 +944,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @throws IllegalStateException if already connected
      * @see #getIfModifiedSince()
      */
-    @Override
     public void setIfModifiedSince(long ifmodifiedsince) {
         // ignore for cassette
         this.connection.setIfModifiedSince(ifmodifiedsince);
@@ -997,7 +961,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * {@code useCaches} flag.
      * @see #setDefaultUseCaches(boolean)
      */
-    @Override
     public boolean getDefaultUseCaches() {
         // ignore for cassette
         return this.connection.getDefaultUseCaches();
@@ -1010,7 +973,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @param defaultusecaches the new value.
      * @see #getDefaultUseCaches()
      */
-    @Override
     public void setDefaultUseCaches(boolean defaultusecaches) {
         // ignore for cassette
         this.connection.setDefaultUseCaches(defaultusecaches);
@@ -1030,9 +992,8 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @param value the value associated with it.
      * @throws IllegalStateException if already connected
      * @throws NullPointerException  if key is {@code null}
-     * @see #getRequestProperty(java.lang.String)
+     * @see #getRequestProperty(String)
      */
-    @Override
     public void setRequestProperty(String key, String value) {
         this.connection.setRequestProperty(key, value);
         if (this.vcr.inRecordMode()) {
@@ -1053,7 +1014,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @see #getRequestProperties()
      * @since 1.4
      */
-    @Override
     public void addRequestProperty(String key, String value) {
         this.connection.addRequestProperty(key, value);
         if (this.vcr.inRecordMode()) {
@@ -1069,9 +1029,8 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @return the value of the named general request property for this
      * connection. If key is null, then null is returned.
      * @throws IllegalStateException if already connected
-     * @see #setRequestProperty(java.lang.String, java.lang.String)
+     * @see #setRequestProperty(String, String)
      */
-    @Override
     public String getRequestProperty(String key) {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -1098,7 +1057,6 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
      * @throws IllegalStateException if already connected
      * @since 1.4
      */
-    @Override
     public Map<String, List<String>> getRequestProperties() {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -1113,8 +1071,22 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
         return this.connection.getRequestProperties();
     }
 
-    @Override
     public InputStream getInputStream() throws IOException {
         return this.connection.getInputStream();
+    }
+
+    @Override
+    public String getCipherSuite() {
+        return this.connection.getCipherSuite();
+    }
+
+    @Override
+    public Certificate[] getLocalCertificates() {
+        return this.connection.getLocalCertificates();
+    }
+
+    @Override
+    public Certificate[] getServerCertificates() throws SSLPeerUnverifiedException {
+        return this.connection.getServerCertificates();
     }
 }
