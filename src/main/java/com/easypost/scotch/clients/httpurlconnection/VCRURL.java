@@ -46,12 +46,12 @@ public class VCRURL {
         this.url = context;
     }
 
-    public VCRHttpUrlConnection openConnection() throws java.io.IOException {
-        return new VCRHttpUrlConnection(this.url, this.vcr);
+    public VCRHttpURLConnection openConnection() throws java.io.IOException {
+        return new VCRHttpURLConnection(this.url, this.vcr);
     }
 
-    public VCRHttpUrlConnection openConnection(Proxy proxy) throws java.io.IOException {
-        return new VCRHttpUrlConnection(this.url, this.vcr, proxy);
+    public VCRHttpURLConnection openConnection(Proxy proxy) throws java.io.IOException {
+        return new VCRHttpURLConnection(this.url, this.vcr, proxy);
     }
 
     public VCRHttpsURLConnection openConnectionSecure() throws IOException {

@@ -6,8 +6,12 @@ import com.easypost.scotch.interaction.HttpInteraction;
 import com.easypost.scotch.interaction.Request;
 import com.easypost.scotch.interaction.Response;
 
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLPeerUnverifiedException;
+import javax.net.ssl.SSLPermission;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocketFactory;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -16,7 +20,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Authenticator;
 import java.net.HttpRetryException;
-import java.net.HttpURLConnection;
 import java.net.ProtocolException;
 import java.net.Proxy;
 import java.net.SocketPermission;
@@ -26,9 +29,12 @@ import java.net.URLEncoder;
 import java.net.UnknownServiceException;
 import java.nio.charset.StandardCharsets;
 import java.security.Permission;
+import java.security.Principal;
 import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class VCRHttpsURLConnection extends HttpsURLConnection {
 
@@ -163,6 +169,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
         return body;
     }
 
+    @Override
     public void connect() throws IOException {
         // might as well load the cassette if we're replaying, or save if we're recording
         this.connection.connect();
@@ -173,22 +180,24 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
         }
     }
 
+    @Override
     public void disconnect() {
         // might as well record if we're connecting
         this.connection.disconnect();
         recordInteraction();
     }
 
+    @Override
     public boolean usingProxy() {
         return this.connection.usingProxy();
     }
 
     /**
-     * Supplies an {@link Authenticator Authenticator} to be used
+     * Supplies an {@link java.net.Authenticator Authenticator} to be used
      * when authentication is requested through the HTTP protocol for
      * this {@code VCRHttpUrlConnection}.
      * If no authenticator is supplied, the
-     * {@linkplain Authenticator#setDefault(Authenticator) default
+     * {@linkplain Authenticator#setDefault(java.net.Authenticator) default
      * authenticator} will be used.
      *
      * @param auth The {@code Authenticator} that should be used by this
@@ -222,6 +231,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * sharing that same {@code Authenticator}.
      * @since 9
      */
+    @Override
     public void setAuthenticator(Authenticator auth) {
         // ignore for cassette
         this.connection.setAuthenticator(auth);
@@ -238,6 +248,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @return the key for the {@code n}<sup>th</sup> header field,
      * or {@code null} if the key does not exist.
      */
+    @Override
     public String getHeaderFieldKey(int n) {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -282,6 +293,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @see #setChunkedStreamingMode(int)
      * @since 1.5
      */
+    @Override
     public void setFixedLengthStreamingMode(int contentLength) {
         // ignore for cassette
         this.connection.setFixedLengthStreamingMode(contentLength);
@@ -313,6 +325,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @throws IllegalArgumentException if a content length less than zero is specified.
      * @since 1.7
      */
+    @Override
     public void setFixedLengthStreamingMode(long contentLength) {
         // ignore for cassette
         this.connection.setFixedLengthStreamingMode(contentLength);
@@ -341,6 +354,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @see #setFixedLengthStreamingMode(int)
      * @since 1.5
      */
+    @Override
     public void setChunkedStreamingMode(int chunklen) {
         // ignore for cassette
         this.connection.setChunkedStreamingMode(chunklen);
@@ -359,8 +373,9 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @param n an index, where {@code n>=0}.
      * @return the value of the {@code n}<sup>th</sup> header field,
      * or {@code null} if the value does not exist.
-     * @see HttpURLConnection#getHeaderFieldKey(int)
+     * @see java.net.HttpURLConnection#getHeaderFieldKey(int)
      */
+    @Override
     public String getHeaderField(int n) {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -384,6 +399,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @see #setInstanceFollowRedirects(boolean)
      * @since 1.3
      */
+    @Override
     public boolean getInstanceFollowRedirects() {
         // ignore for cassette
         return this.connection.getInstanceFollowRedirects();
@@ -402,6 +418,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @see #getInstanceFollowRedirects
      * @since 1.3
      */
+    @Override
     public void setInstanceFollowRedirects(boolean followRedirects) {
         // ignore for cassette
         this.connection.setInstanceFollowRedirects(followRedirects);
@@ -411,8 +428,9 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * Get the request method.
      *
      * @return the HTTP request method
-     * @see #setRequestMethod(String)
+     * @see #setRequestMethod(java.lang.String)
      */
+    @Override
     public String getRequestMethod() {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -448,6 +466,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      *                           NetPermission is not granted.
      * @see #getRequestMethod()
      */
+    @Override
     public void setRequestMethod(String method) throws ProtocolException {
         this.connection.setRequestMethod(method);
         if (this.vcr.inRecordMode()) {
@@ -469,6 +488,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @return the HTTP Status-Code, or -1
      * @throws IOException if an error occurred connecting to the server.
      */
+    @Override
     public int getResponseCode() throws IOException {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -497,6 +517,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @return the HTTP response message, or {@code null}
      * @throws IOException if an error occurred connecting to the server.
      */
+    @Override
     public String getResponseMessage() throws IOException {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -521,6 +542,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @throws IOException if an error occurs while computing
      *                     the permission.
      */
+    @Override
     public Permission getPermission() throws IOException {
         // ignore for cassette
         return this.connection.getPermission();
@@ -544,6 +566,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * errors, the connection is not connected or the server sent no
      * useful data.
      */
+    @Override
     public InputStream getErrorStream() {
         // ignore for cassette
         return this.connection.getErrorStream();
@@ -561,6 +584,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @see #connect()
      * @since 1.5
      */
+    @Override
     public int getConnectTimeout() {
         // ignore for cassette
         return this.connection.getConnectTimeout();
@@ -585,6 +609,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @see #connect()
      * @since 1.5
      */
+    @Override
     public void setConnectTimeout(int timeout) {
         // ignore for cassette
         this.connection.setConnectTimeout(timeout);
@@ -600,6 +625,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @see InputStream#read()
      * @since 1.5
      */
+    @Override
     public int getReadTimeout() {
         // ignore for cassette
         return this.connection.getReadTimeout();
@@ -624,6 +650,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @see InputStream#read()
      * @since 1.5
      */
+    @Override
     public void setReadTimeout(int timeout) {
         // ignore for cassette
         this.connection.setReadTimeout(timeout);
@@ -636,6 +663,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @return the value of this {@code URLConnection}'s {@code URL}
      * field.
      */
+    @Override
     public URL getURL() {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -655,8 +683,9 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      *
      * @return the content type of the resource that the URL references,
      * or {@code null} if not known.
-     * @see java.net.URLConnection#getHeaderField(String)
+     * @see java.net.URLConnection#getHeaderField(java.lang.String)
      */
+    @Override
     public String getContentType() {
         return getHeaderField("content-type");
     }
@@ -666,8 +695,9 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      *
      * @return the content encoding of the resource that the URL references,
      * or {@code null} if not known.
-     * @see java.net.URLConnection#getHeaderField(String)
+     * @see java.net.URLConnection#getHeaderField(java.lang.String)
      */
+    @Override
     public String getContentEncoding() {
         return getHeaderField("content-encoding");
     }
@@ -678,8 +708,9 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @return the expiration date of the resource that this URL references,
      * or 0 if not known. The value is the number of milliseconds since
      * January 1, 1970 GMT.
-     * @see java.net.URLConnection#getHeaderField(String)
+     * @see java.net.URLConnection#getHeaderField(java.lang.String)
      */
+    @Override
     public long getExpiration() {
         return this.connection.getExpiration();
     }
@@ -694,6 +725,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @return the value of the named header field, or {@code null}
      * if there is no such field in the header.
      */
+    @Override
     public String getHeaderField(String name) {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -718,6 +750,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @return a Map of header fields
      * @since 1.4
      */
+    @Override
     public Map<String, List<String>> getHeaderFields() {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -774,10 +807,11 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      *                                 getting the content.
      * @throws UnknownServiceException if the protocol does not support
      *                                 the content type.
-     * @see java.net.ContentHandlerFactory#createContentHandler(String)
+     * @see java.net.ContentHandlerFactory#createContentHandler(java.lang.String)
      * @see java.net.URLConnection#getContentType()
      * @see java.net.URLConnection#setContentHandlerFactory(java.net.ContentHandlerFactory)
      */
+    @Override
     public Object getContent() throws IOException {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -797,6 +831,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      *
      * @return a string representation of this {@code URLConnection}.
      */
+    @Override
     public String toString() {
         // ignore for cassette
         return this.connection.toString();
@@ -810,6 +845,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * {@code doInput} flag.
      * @see #setDoInput(boolean)
      */
+    @Override
     public boolean getDoInput() {
         // ignore for cassette
         return this.connection.getDoInput();
@@ -827,6 +863,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @throws IllegalStateException if already connected
      * @see #getDoInput()
      */
+    @Override
     public void setDoInput(boolean doinput) {
         // ignore for cassette
         this.connection.setDoInput(doinput);
@@ -840,6 +877,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * {@code doOutput} flag.
      * @see #setDoOutput(boolean)
      */
+    @Override
     public boolean getDoOutput() {
         // ignore for cassette
         return this.connection.getDoOutput();
@@ -857,6 +895,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @throws IllegalStateException if already connected
      * @see #getDoOutput()
      */
+    @Override
     public void setDoOutput(boolean dooutput) {
         // ignore for cassette
         if (this.connection.getDoOutput() != dooutput) {
@@ -872,6 +911,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * this object.
      * @see #setAllowUserInteraction(boolean)
      */
+    @Override
     public boolean getAllowUserInteraction() {
         // ignore for cassette
         return this.connection.getAllowUserInteraction();
@@ -885,6 +925,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @throws IllegalStateException if already connected
      * @see #getAllowUserInteraction()
      */
+    @Override
     public void setAllowUserInteraction(boolean allowuserinteraction) {
         // ignore for cassette
         this.connection.setAllowUserInteraction(allowuserinteraction);
@@ -898,6 +939,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * {@code useCaches} field.
      * @see #setUseCaches(boolean)
      */
+    @Override
     public boolean getUseCaches() {
         // ignore for cassette
         return this.connection.getUseCaches();
@@ -920,6 +962,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @throws IllegalStateException if already connected
      * @see #getUseCaches()
      */
+    @Override
     public void setUseCaches(boolean usecaches) {
         // ignore for cassette
         this.connection.setUseCaches(usecaches);
@@ -931,6 +974,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @return the value of this object's {@code ifModifiedSince} field.
      * @see #setIfModifiedSince(long)
      */
+    @Override
     public long getIfModifiedSince() {
         // ignore for cassette
         return this.connection.getIfModifiedSince();
@@ -944,6 +988,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @throws IllegalStateException if already connected
      * @see #getIfModifiedSince()
      */
+    @Override
     public void setIfModifiedSince(long ifmodifiedsince) {
         // ignore for cassette
         this.connection.setIfModifiedSince(ifmodifiedsince);
@@ -961,6 +1006,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * {@code useCaches} flag.
      * @see #setDefaultUseCaches(boolean)
      */
+    @Override
     public boolean getDefaultUseCaches() {
         // ignore for cassette
         return this.connection.getDefaultUseCaches();
@@ -973,6 +1019,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @param defaultusecaches the new value.
      * @see #getDefaultUseCaches()
      */
+    @Override
     public void setDefaultUseCaches(boolean defaultusecaches) {
         // ignore for cassette
         this.connection.setDefaultUseCaches(defaultusecaches);
@@ -992,8 +1039,9 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @param value the value associated with it.
      * @throws IllegalStateException if already connected
      * @throws NullPointerException  if key is {@code null}
-     * @see #getRequestProperty(String)
+     * @see #getRequestProperty(java.lang.String)
      */
+    @Override
     public void setRequestProperty(String key, String value) {
         this.connection.setRequestProperty(key, value);
         if (this.vcr.inRecordMode()) {
@@ -1014,6 +1062,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @see #getRequestProperties()
      * @since 1.4
      */
+    @Override
     public void addRequestProperty(String key, String value) {
         this.connection.addRequestProperty(key, value);
         if (this.vcr.inRecordMode()) {
@@ -1029,8 +1078,9 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @return the value of the named general request property for this
      * connection. If key is null, then null is returned.
      * @throws IllegalStateException if already connected
-     * @see #setRequestProperty(String, String)
+     * @see #setRequestProperty(java.lang.String, java.lang.String)
      */
+    @Override
     public String getRequestProperty(String key) {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -1057,6 +1107,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @throws IllegalStateException if already connected
      * @since 1.4
      */
+    @Override
     public Map<String, List<String>> getRequestProperties() {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -1071,22 +1122,330 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
         return this.connection.getRequestProperties();
     }
 
+    @Override
     public InputStream getInputStream() throws IOException {
+        // ignore for cassette
         return this.connection.getInputStream();
+    }
+
+    @SuppressWarnings ("deprecation")
+    @Override
+    public long getHeaderFieldDate(String name, long Default) {
+        // ignore for cassette
+        return this.connection.getHeaderFieldDate(name, Default);
+    }
+
+    /**
+     * Returns the value of the {@code content-length} header field.
+     * <p>
+     * <B>Note</B>: {@link #getContentLengthLong() getContentLengthLong()}
+     * should be preferred over this method, since it returns a {@code long}
+     * instead and is therefore more portable.</P>
+     *
+     * @return the content length of the resource that this connection's URL
+     * references, {@code -1} if the content length is not known,
+     * or if the content length is greater than Integer.MAX_VALUE.
+     */
+    @Override
+    public int getContentLength() {
+        // ignore for cassette
+        return this.connection.getContentLength();
+    }
+
+    /**
+     * Returns the value of the {@code content-length} header field as a
+     * long.
+     *
+     * @return the content length of the resource that this connection's URL
+     * references, or {@code -1} if the content length is
+     * not known.
+     * @since 1.7
+     */
+    @Override
+    public long getContentLengthLong() {
+        // ignore for cassette
+        return this.connection.getContentLengthLong();
+    }
+
+    /**
+     * Returns the value of the {@code date} header field.
+     *
+     * @return the sending date of the resource that the URL references,
+     * or {@code 0} if not known. The value returned is the
+     * number of milliseconds since January 1, 1970 GMT.
+     * @see java.net.URLConnection#getHeaderField(java.lang.String)
+     */
+    @Override
+    public long getDate() {
+        // ignore for cassette
+        return this.connection.getDate();
+    }
+
+    /**
+     * Returns the value of the {@code last-modified} header field.
+     * The result is the number of milliseconds since January 1, 1970 GMT.
+     *
+     * @return the date the resource referenced by this
+     * {@code URLConnection} was last modified, or 0 if not known.
+     * @see java.net.URLConnection#getHeaderField(java.lang.String)
+     */
+    @Override
+    public long getLastModified() {
+        // ignore for cassette
+        return this.connection.getLastModified();
+    }
+
+    /**
+     * Returns the value of the named field parsed as a number.
+     * <p>
+     * This form of {@code getHeaderField} exists because some
+     * connection types (e.g., {@code http-ng}) have pre-parsed
+     * headers. Classes for that connection type can override this method
+     * and short-circuit the parsing.
+     *
+     * @param name    the name of the header field.
+     * @param Default the default value.
+     * @return the value of the named field, parsed as an integer. The
+     * {@code Default} value is returned if the field is
+     * missing or malformed.
+     */
+    @Override
+    public int getHeaderFieldInt(String name, int Default) {
+        // ignore for cassette
+        return this.connection.getHeaderFieldInt(name, Default);
+    }
+
+    /**
+     * Returns the value of the named field parsed as a number.
+     * <p>
+     * This form of {@code getHeaderField} exists because some
+     * connection types (e.g., {@code http-ng}) have pre-parsed
+     * headers. Classes for that connection type can override this method
+     * and short-circuit the parsing.
+     *
+     * @param name    the name of the header field.
+     * @param Default the default value.
+     * @return the value of the named field, parsed as a long. The
+     * {@code Default} value is returned if the field is
+     * missing or malformed.
+     * @since 1.7
+     */
+    @Override
+    public long getHeaderFieldLong(String name, long Default) {
+        // ignore for cassette
+        return this.connection.getHeaderFieldLong(name, Default);
+    }
+
+    /**
+     * Retrieves the contents of this URL connection.
+     *
+     * @param classes the {@code Class} array
+     *                indicating the requested types
+     * @return the object fetched that is the first match of the type
+     * specified in the classes array. null if none of
+     * the requested types are supported.
+     * The {@code instanceof} operator should be used to
+     * determine the specific kind of object returned.
+     * @throws IOException             if an I/O error occurs while
+     *                                 getting the content.
+     * @throws UnknownServiceException if the protocol does not support
+     *                                 the content type.
+     * @see java.net.URLConnection#getContent()
+     * @see java.net.ContentHandlerFactory#createContentHandler(java.lang.String)
+     * @see java.net.URLConnection#getContent(java.lang.Class[])
+     * @see java.net.URLConnection#setContentHandlerFactory(java.net.ContentHandlerFactory)
+     * @since 1.3
+     */
+    @Override
+    public Object getContent(Class<?>[] classes) throws IOException {
+        // ignore for cassette
+        return this.connection.getContent(classes);
+    }
+
+    /**
+     * Returns an output stream that writes to this connection.
+     *
+     * @return an output stream that writes to this connection.
+     * @throws IOException             if an I/O error occurs while
+     *                                 creating the output stream.
+     * @throws UnknownServiceException if the protocol does not support
+     *                                 output.
+     */
+    @Override
+    public OutputStream getOutputStream() throws IOException {
+        // ignore for cassette
+        return this.connection.getOutputStream();
     }
 
     @Override
     public String getCipherSuite() {
+        // ignore for cassette
         return this.connection.getCipherSuite();
     }
 
     @Override
     public Certificate[] getLocalCertificates() {
+        // ignore for cassette
         return this.connection.getLocalCertificates();
     }
 
     @Override
     public Certificate[] getServerCertificates() throws SSLPeerUnverifiedException {
+        // ignore for cassette
         return this.connection.getServerCertificates();
+    }
+
+    /**
+     * Returns the server's principal which was established as part of
+     * defining the session.
+     * <P>
+     * Note: Subclasses should override this method. If not overridden, it
+     * will default to returning the X500Principal of the server's end-entity
+     * certificate for certificate-based ciphersuites, or throw an
+     * SSLPeerUnverifiedException for non-certificate based ciphersuites,
+     * such as Kerberos.
+     *
+     * @return the server's principal. Returns an X500Principal of the
+     * end-entity certiticate for X509-based cipher suites, and
+     * KerberosPrincipal for Kerberos cipher suites.
+     *
+     * @throws SSLPeerUnverifiedException if the peer was not verified
+     * @throws IllegalStateException if this method is called before
+     *          the connection has been established.
+     *
+     * @see #getServerCertificates()
+     * @see #getLocalPrincipal()
+     *
+     * @since 1.5
+     */
+    @Override
+    public Principal getPeerPrincipal()
+            throws SSLPeerUnverifiedException {
+        // ignore for cassette
+        return this.connection.getPeerPrincipal();
+    }
+
+    /**
+     * Returns the principal that was sent to the server during handshaking.
+     * <P>
+     * Note: Subclasses should override this method. If not overridden, it
+     * will default to returning the X500Principal of the end-entity certificate
+     * that was sent to the server for certificate-based ciphersuites or,
+     * return null for non-certificate based ciphersuites, such as Kerberos.
+     *
+     * @return the principal sent to the server. Returns an X500Principal
+     * of the end-entity certificate for X509-based cipher suites, and
+     * KerberosPrincipal for Kerberos cipher suites. If no principal was
+     * sent, then null is returned.
+     *
+     * @throws IllegalStateException if this method is called before
+     *          the connection has been established.
+     *
+     * @see #getLocalCertificates()
+     * @see #getPeerPrincipal()
+     *
+     * @since 1.5
+     */
+    @Override
+    public Principal getLocalPrincipal() {
+        // ignore for cassette
+        return this.connection.getLocalPrincipal();
+    }
+
+    /**
+     * Sets the <code>HostnameVerifier</code> for this instance.
+     * <P>
+     * New instances of this class inherit the default static hostname
+     * verifier set by {@link #setDefaultHostnameVerifier(HostnameVerifier)
+     * setDefaultHostnameVerifier}.  Calls to this method replace
+     * this object's <code>HostnameVerifier</code>.
+     *
+     * @param v the host name verifier
+     * @throws IllegalArgumentException if the <code>HostnameVerifier</code>
+     *  parameter is null.
+     * @see #getHostnameVerifier()
+     * @see #setDefaultHostnameVerifier(HostnameVerifier)
+     */
+    @Override
+    public void setHostnameVerifier(HostnameVerifier v) {
+        // ignore for cassette
+        this.connection.setHostnameVerifier(v);
+    }
+
+    /**
+     * Gets the <code>HostnameVerifier</code> in place on this instance.
+     *
+     * @return the host name verifier
+     * @see #setHostnameVerifier(HostnameVerifier)
+     * @see #setDefaultHostnameVerifier(HostnameVerifier)
+     */
+    @Override
+    public HostnameVerifier getHostnameVerifier() {
+        // ignore for cassette
+        return this.connection.getHostnameVerifier();
+    }
+
+    /**
+     * Sets the <code>SSLSocketFactory</code> to be used when this instance
+     * creates sockets for secure https URL connections.
+     * <P>
+     * New instances of this class inherit the default static
+     * <code>SSLSocketFactory</code> set by
+     * {@link #setDefaultSSLSocketFactory(SSLSocketFactory)
+     * setDefaultSSLSocketFactory}.  Calls to this method replace
+     * this object's <code>SSLSocketFactory</code>.
+     *
+     * @param sf the SSL socket factory
+     * @throws IllegalArgumentException if the <code>SSLSocketFactory</code>
+     *          parameter is null.
+     * @throws SecurityException if a security manager exists and its
+     *         <code>checkSetFactory</code> method does not allow
+     *         a socket factory to be specified.
+     * @see #getSSLSocketFactory()
+     */
+    @Override
+    public void setSSLSocketFactory(SSLSocketFactory sf) {
+        // ignore for cassette
+        this.connection.setSSLSocketFactory(sf);
+    }
+
+    /**
+     * Gets the SSL socket factory to be used when creating sockets
+     * for secure https URL connections.
+     *
+     * @return the <code>SSLSocketFactory</code>
+     * @see #setSSLSocketFactory(SSLSocketFactory)
+     */
+    @Override
+    public SSLSocketFactory getSSLSocketFactory() {
+        // ignore for cassette
+        return this.connection.getSSLSocketFactory();
+    }
+
+    /**
+     * Returns an {@link Optional} containing the {@code SSLSession} in
+     * use on this connection.  Returns an empty {@code Optional} if the
+     * underlying implementation does not support this method.
+     *
+     * @implSpec For compatibility, the default implementation of this
+     *           method returns an empty {@code Optional}.  Subclasses
+     *           should override this method with an appropriate
+     *           implementation since an application may need to access
+     *           additional parameters associated with the SSL session.
+     *
+     * @return   an {@link Optional} containing the {@code SSLSession} in
+     *           use on this connection.
+     *
+     * @throws   IllegalStateException if this method is called before
+     *           the connection has been established
+     *
+     * @see SSLSession
+     *
+     * @since 12
+     */
+    @Override
+    public Optional<SSLSession> getSSLSession() {
+        // ignore for cassette
+        return this.connection.getSSLSession();
     }
 }

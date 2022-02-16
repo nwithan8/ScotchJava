@@ -27,7 +27,7 @@ import java.security.Permission;
 import java.util.List;
 import java.util.Map;
 
-public class VCRHttpUrlConnection extends HttpURLConnection {
+public class VCRHttpURLConnection extends HttpURLConnection {
 
     private final HttpURLConnection connection;
     private final VCR vcr;
@@ -36,7 +36,7 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
     private String body;
     private String queryString;
 
-    public VCRHttpUrlConnection(URL url, VCR vcr) throws IOException {
+    public VCRHttpURLConnection(URL url, VCR vcr) throws IOException {
         // this super is not used
         super(url);
         this.connection = (HttpURLConnection) url.openConnection();
@@ -46,7 +46,7 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
         this.queryString = null;
     }
 
-    public VCRHttpUrlConnection(URL url, VCR vcr, Proxy proxy) throws IOException {
+    public VCRHttpURLConnection(URL url, VCR vcr, Proxy proxy) throws IOException {
         // this super is not used
         super(url);
         this.connection = (HttpURLConnection) url.openConnection(proxy);
@@ -1115,6 +1115,156 @@ public class VCRHttpUrlConnection extends HttpURLConnection {
 
     @Override
     public InputStream getInputStream() throws IOException {
+        // ignore for cassette
         return this.connection.getInputStream();
+    }
+
+    @SuppressWarnings ("deprecation")
+    @Override
+    public long getHeaderFieldDate(String name, long Default) {
+        // ignore for cassette
+        return this.connection.getHeaderFieldDate(name, Default);
+    }
+
+    /**
+     * Returns the value of the {@code content-length} header field.
+     * <p>
+     * <B>Note</B>: {@link #getContentLengthLong() getContentLengthLong()}
+     * should be preferred over this method, since it returns a {@code long}
+     * instead and is therefore more portable.</P>
+     *
+     * @return the content length of the resource that this connection's URL
+     * references, {@code -1} if the content length is not known,
+     * or if the content length is greater than Integer.MAX_VALUE.
+     */
+    @Override
+    public int getContentLength() {
+        // ignore for cassette
+        return this.connection.getContentLength();
+    }
+
+    /**
+     * Returns the value of the {@code content-length} header field as a
+     * long.
+     *
+     * @return the content length of the resource that this connection's URL
+     * references, or {@code -1} if the content length is
+     * not known.
+     * @since 1.7
+     */
+    @Override
+    public long getContentLengthLong() {
+        // ignore for cassette
+        return this.connection.getContentLengthLong();
+    }
+
+    /**
+     * Returns the value of the {@code date} header field.
+     *
+     * @return the sending date of the resource that the URL references,
+     * or {@code 0} if not known. The value returned is the
+     * number of milliseconds since January 1, 1970 GMT.
+     * @see java.net.URLConnection#getHeaderField(java.lang.String)
+     */
+    @Override
+    public long getDate() {
+        // ignore for cassette
+        return this.connection.getDate();
+    }
+
+    /**
+     * Returns the value of the {@code last-modified} header field.
+     * The result is the number of milliseconds since January 1, 1970 GMT.
+     *
+     * @return the date the resource referenced by this
+     * {@code URLConnection} was last modified, or 0 if not known.
+     * @see java.net.URLConnection#getHeaderField(java.lang.String)
+     */
+    @Override
+    public long getLastModified() {
+        // ignore for cassette
+        return this.connection.getLastModified();
+    }
+
+    /**
+     * Returns the value of the named field parsed as a number.
+     * <p>
+     * This form of {@code getHeaderField} exists because some
+     * connection types (e.g., {@code http-ng}) have pre-parsed
+     * headers. Classes for that connection type can override this method
+     * and short-circuit the parsing.
+     *
+     * @param name    the name of the header field.
+     * @param Default the default value.
+     * @return the value of the named field, parsed as an integer. The
+     * {@code Default} value is returned if the field is
+     * missing or malformed.
+     */
+    @Override
+    public int getHeaderFieldInt(String name, int Default) {
+        // ignore for cassette
+        return this.connection.getHeaderFieldInt(name, Default);
+    }
+
+    /**
+     * Returns the value of the named field parsed as a number.
+     * <p>
+     * This form of {@code getHeaderField} exists because some
+     * connection types (e.g., {@code http-ng}) have pre-parsed
+     * headers. Classes for that connection type can override this method
+     * and short-circuit the parsing.
+     *
+     * @param name    the name of the header field.
+     * @param Default the default value.
+     * @return the value of the named field, parsed as a long. The
+     * {@code Default} value is returned if the field is
+     * missing or malformed.
+     * @since 1.7
+     */
+    @Override
+    public long getHeaderFieldLong(String name, long Default) {
+        // ignore for cassette
+        return this.connection.getHeaderFieldLong(name, Default);
+    }
+
+    /**
+     * Retrieves the contents of this URL connection.
+     *
+     * @param classes the {@code Class} array
+     *                indicating the requested types
+     * @return the object fetched that is the first match of the type
+     * specified in the classes array. null if none of
+     * the requested types are supported.
+     * The {@code instanceof} operator should be used to
+     * determine the specific kind of object returned.
+     * @throws IOException             if an I/O error occurs while
+     *                                 getting the content.
+     * @throws UnknownServiceException if the protocol does not support
+     *                                 the content type.
+     * @see java.net.URLConnection#getContent()
+     * @see java.net.ContentHandlerFactory#createContentHandler(java.lang.String)
+     * @see java.net.URLConnection#getContent(java.lang.Class[])
+     * @see java.net.URLConnection#setContentHandlerFactory(java.net.ContentHandlerFactory)
+     * @since 1.3
+     */
+    @Override
+    public Object getContent(Class<?>[] classes) throws IOException {
+        // ignore for cassette
+        return this.connection.getContent(classes);
+    }
+
+    /**
+     * Returns an output stream that writes to this connection.
+     *
+     * @return an output stream that writes to this connection.
+     * @throws IOException             if an I/O error occurs while
+     *                                 creating the output stream.
+     * @throws UnknownServiceException if the protocol does not support
+     *                                 output.
+     */
+    @Override
+    public OutputStream getOutputStream() throws IOException {
+        // ignore for cassette
+        return this.connection.getOutputStream();
     }
 }

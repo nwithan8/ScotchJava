@@ -1,5 +1,5 @@
 import com.easypost.scotch.VCR;
-import com.easypost.scotch.clients.httpurlconnection.VCRHttpUrlConnection;
+import com.easypost.scotch.clients.httpurlconnection.VCRHttpURLConnection;
 import com.easypost.scotch.clients.httpurlconnection.VCRHttpsURLConnection;
 import com.easypost.scotch.clients.httpurlconnection.VCRURL;
 import org.junit.Test;
@@ -15,7 +15,7 @@ public class TestHttpUrlConnection {
     private void testHttpUrlConnectionRequest(VCR vcr) throws IOException {
         VCRURL url = new VCRURL("https://m.facebook.com", vcr);
 
-        VCRHttpUrlConnection conn = url.openConnection();
+        VCRHttpURLConnection conn = url.openConnection();
 
         conn.setRequestMethod("DELETE");
 
@@ -42,7 +42,7 @@ public class TestHttpUrlConnection {
         VCR vcr = TestTools.getRecordingVCR(cassettePath);
         VCRURL url = new VCRURL("https://m.facebook.com", vcr);
 
-        VCRHttpUrlConnection conn = url.openConnection();
+        VCRHttpURLConnection conn = url.openConnection();
         conn.setRequestMethod("DELETE");
         HttpURLConnection connCast = (HttpURLConnection) conn;
 
