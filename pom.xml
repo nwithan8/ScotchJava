@@ -6,6 +6,7 @@
 
     <groupId>groupId</groupId>
     <artifactId>scotch_java</artifactId>
+    <packaging>pom</packaging>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
