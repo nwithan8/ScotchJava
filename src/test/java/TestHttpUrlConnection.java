@@ -44,17 +44,20 @@ public class TestHttpUrlConnection {
 
         VCRHttpURLConnection conn = url.openConnection();
         conn.setRequestMethod("DELETE");
+        conn.setRequestProperty("This", "That");
+        conn.setRequestProperty("this2", "that2");
         HttpURLConnection connCast = (HttpURLConnection) conn;
 
-        System.out.println(conn.getContent());
         System.out.println(connCast.getContent());
 
         VCRHttpsURLConnection sConn = url.openConnectionSecure();
         sConn.setRequestMethod("DELETE");
+        sConn.setRequestProperty("This", "That");
+        sConn.setRequestProperty("this2", "that2");
         HttpsURLConnection sConnCast = (HttpsURLConnection) sConn;
 
-        System.out.println(sConn.getURL());
         System.out.println(sConnCast.getURL());
+        System.out.println(sConnCast.getContent());
 
     }
 }
