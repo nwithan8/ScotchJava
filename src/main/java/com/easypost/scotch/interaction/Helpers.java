@@ -50,6 +50,13 @@ public class Helpers {
         }
     }
 
+    public static InputStream createInputStream(String string) {
+        if (string == null) {
+            return new ByteArrayInputStream(new byte[] {});
+        }
+        return new ByteArrayInputStream(string.getBytes());
+    }
+
     public static String readBodyFromInputStream(InputStream stream) {
         if (stream == null) {
             return null;

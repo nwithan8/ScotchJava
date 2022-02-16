@@ -29,6 +29,8 @@ public class Response {
 
     private String body;
 
+    private String errors;
+
     private HttpVersion version;
 
     private URI uri;
@@ -251,6 +253,14 @@ public class Response {
 
     public void setBody(String body) {
         this.body = body;
+    }
+
+    public String getErrors() {
+        return this.errors;
+    }
+
+    public void setErrors(String errors) {
+        this.errors = errors;
     }
 
     public HttpVersion getVersion() {

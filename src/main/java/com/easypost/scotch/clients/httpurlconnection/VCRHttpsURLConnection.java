@@ -109,6 +109,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
             response.setMessage(this.responseResponseMessage);
             response.setUri(this.requestURL.toURI());
             response.setBody(Helpers.readBodyFromInputStream(this.responseInputStream));
+            response.setErrors(Helpers.readBodyFromInputStream(this.responseErrorStream));
             response.setHeaders(this.responseHeaderFields);
             return response;
         } catch (URISyntaxException ignored) {
@@ -1167,6 +1168,16 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
     public InputStream getInputStream() throws IOException {
         // ignore for cassette
         cacheAndRecordIfNeeded();
+        if (this.vcr.inPlaybackMode()) {
+            if (loadMatchingInteraction()) {
+                try {
+                    return Helpers.createInputStream(this.cachedInteraction.getResponse().getBody());
+                } catch (Exception ignored) {
+                    return null;
+                }
+            }
+            return null;
+        }
         this.responseInputStream.reset();
         return this.responseInputStream;
     }

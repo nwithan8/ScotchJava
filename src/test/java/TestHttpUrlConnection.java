@@ -45,7 +45,7 @@ public class TestHttpUrlConnection {
 
     @Test
     public void testCast() throws IOException {
-        VCR vcr = TestTools.getRecordingVCR(cassettePath);
+        VCR vcr = TestTools.getReplayingVCR(cassettePath);
         VCRURL url = new VCRURL("https://m.facebook.com", vcr);
 
         VCRHttpsURLConnection sConn = url.openConnectionSecure();
@@ -62,6 +62,5 @@ public class TestHttpUrlConnection {
 
         // stream.close();
         System.out.println(text);
-
     }
 }
