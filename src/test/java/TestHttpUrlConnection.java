@@ -49,6 +49,7 @@ public class TestHttpUrlConnection {
         HttpURLConnection connCast = (HttpURLConnection) conn;
 
         System.out.println(connCast.getContent());
+        System.out.println(connCast.getInputStream());
 
         VCRHttpsURLConnection sConn = url.openConnectionSecure();
         sConn.setRequestMethod("DELETE");
@@ -58,6 +59,7 @@ public class TestHttpUrlConnection {
 
         System.out.println(sConnCast.getURL());
         System.out.println(sConnCast.getContent());
+        System.out.println(sConnCast.getInputStream());
 
     }
 }

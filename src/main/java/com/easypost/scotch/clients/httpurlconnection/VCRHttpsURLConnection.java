@@ -11,11 +11,10 @@ import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocketFactory;
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Authenticator;
 import java.net.HttpRetryException;
@@ -39,17 +38,24 @@ import java.util.Optional;
 public class VCRHttpsURLConnection extends HttpsURLConnection {
 
     // interaction is not actually recorded until you getX() from the result
-    private Request cachedRequest;
-    private Response cachedResponse;
-    private boolean recorded = false;
 
     private final HttpsURLConnection connection;
     private final VCR vcr;
     private HttpInteraction cachedInteraction;
 
-    private String body;
-    private String queryString;
-    private Map<String, List<String>> headers = new HashMap<>();
+    // Cached request attributes
+    private URL requestURL;
+    private String requestRequestMethod;
+    private Map<String, List<String>> requestRequestProperties = new HashMap<>();
+
+    // Cached response attributes
+    private boolean responseCached = false;
+    private InputStream responseInputStream;
+    private InputStream responseErrorStream;
+    private int responseResponseCode;
+    private String responseResponseMessage;
+    private Map<String, List<String>> responseHeaderFields;
+
 
     public VCRHttpsURLConnection(URL url, VCR vcr) throws IOException {
         // this super is not used
@@ -57,8 +63,6 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
         this.connection = (HttpsURLConnection) url.openConnection();
         this.vcr = vcr;
         this.cachedInteraction = new HttpInteraction(new Request(), new Response());
-        this.body = null;
-        this.queryString = null;
     }
 
     public VCRHttpsURLConnection(URL url, VCR vcr, Proxy proxy) throws IOException {
@@ -67,8 +71,6 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
         this.connection = (HttpsURLConnection) url.openConnection(proxy);
         this.vcr = vcr;
         this.cachedInteraction = new HttpInteraction(new Request(), new Response());
-        this.body = null;
-        this.queryString = null;
     }
 
     private static String getParamsString(Map<String, String> params) {
@@ -85,18 +87,14 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
         return resultString.length() > 0 ? resultString.substring(0, resultString.length() - 1) : resultString;
     }
 
-    private Request createRequest() {
+    private Request createVCRRequest() {
         // need to remake each time, since could change
         try {
-            String tempUrlWithParams = this.connection.getURL().toURI().toString();
-            if (queryString != null) {
-                tempUrlWithParams += "?" + queryString;
-            }
             Request request = new Request();
-            request.setUriString(tempUrlWithParams);
-            request.setBody(body);
-            request.setMethod(this.connection.getRequestMethod());
-            request.setHeaders(this.headers);
+            request.setUri(this.requestURL.toURI());
+            // request.setBody(body);
+            request.setMethod(this.requestRequestMethod);
+            request.setHeaders(this.requestRequestProperties);
             return request;
         } catch (URISyntaxException ignored) {
         }
@@ -104,19 +102,16 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
         return null;
     }
 
-    private Response createResponse() {
-        if (this.cachedResponse != null) {
-            return this.cachedResponse;
-        }
+    private Response createVCRResponse() {
         try {
             Response response = new Response();
-            response.setStatusCode(this.connection.getResponseCode());
-            response.setMessage(this.connection.getResponseMessage());
-            response.setUri(this.connection.getURL().toURI());
-            response.setBody(Helpers.readBodyFromInputStream(this.connection.getInputStream()));
-            response.setHeaders(this.connection.getHeaderFields());
+            response.setStatusCode(this.responseResponseCode);
+            response.setMessage(this.responseResponseMessage);
+            response.setUri(this.requestURL.toURI());
+            response.setBody(Helpers.readBodyFromInputStream(this.responseInputStream));
+            response.setHeaders(this.responseHeaderFields);
             return response;
-        } catch (URISyntaxException | IOException ignored) {
+        } catch (URISyntaxException ignored) {
         }
 
         return null;
@@ -127,81 +122,76 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
         // only need to execute this once, on the first getX(), since no more setX() is allowed at that point
         // so the request and response won't be changing
         // important to call directly on connection, rather than this.function() to avoid potential recursion
-        if (recorded) {
-            return;
-        }
-        if (this.cachedRequest == null) {
-            this.cachedRequest = createRequest();
-        }
-        this.cachedResponse = createResponse();
+        Request request = createVCRRequest();
+        Response response = createVCRResponse();
 
-        this.cachedInteraction = new HttpInteraction(this.cachedRequest, this.cachedResponse);
+        this.cachedInteraction = new HttpInteraction(request, response);
         this.vcr.tapeOverExistingInteraction(this.cachedInteraction);
-        recorded = true;
     }
 
     private boolean loadMatchingInteraction() {
-        if (this.cachedRequest == null) {
-            this.cachedRequest = createRequest();
-        }
+        Request request = createVCRRequest();
         // null because couldn't be created
-        if (this.cachedRequest == null) {
+        if (request == null) {
             return false;
         }
-        this.cachedInteraction = this.vcr.seekMatchingInteraction(this.cachedRequest);
+        this.cachedInteraction = this.vcr.seekMatchingInteraction(request);
         return this.cachedInteraction != null;
     }
 
-    private void clearCache() {
-        this.cachedRequest = null;
-        this.cachedResponse = null;
-        this.cachedInteraction = null;
-        recorded = false;
-    }
-
-    public void addQueryParameters(Map<String, String> parameters) throws IOException {
-        // please use this way to add parameters so we can capture it
-        this.queryString = getParamsString(parameters);
-
-        this.setDoOutput(true);
-        DataOutputStream out = new DataOutputStream(this.connection.getOutputStream());
-        out.writeBytes(this.queryString);
-
-        /* if (this.vcr.inRecordMode()) {
-            recordInteraction();
-        }*/
-    }
-
-    public void addBody(String body) throws IOException {
-        // please use this way to add a body so we can capture it
-        this.body = body;
-
-        this.setDoOutput(true);
-        try (OutputStream os = this.connection.getOutputStream()) {
-            byte[] input = this.body.getBytes(StandardCharsets.UTF_8);
-            os.write(input, 0, input.length);
+    private InputStream copyInputStream(InputStream stream) {
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            stream.transferTo(baos);
+            return new ByteArrayInputStream(baos.toByteArray());
+        } catch (IOException ignored) {
+            return new ByteArrayInputStream(new byte[] {});
         }
+    }
 
-        /*
+    private void cacheHttpRequest() {
+        try {
+            this.requestRequestMethod = this.connection.getRequestMethod();
+            this.requestURL = this.connection.getURL();
+            this.requestRequestProperties = this.connection.getRequestProperties();
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void cacheHttpResponse() {
+        // can only cache this once
+        if (this.responseCached) {
+            return;
+        }
+        try {
+            this.responseResponseCode = this.connection.getResponseCode();
+            this.responseResponseMessage = this.connection.getResponseMessage();
+            this.responseHeaderFields = this.connection.getHeaderFields();
+            this.responseInputStream = copyInputStream(this.connection.getInputStream());
+            this.responseErrorStream = copyInputStream(this.connection.getErrorStream());
+            this.responseCached = true;
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void cacheAndRecordIfNeeded() {
+        cacheHttpRequest();
+        cacheHttpResponse();
         if (this.vcr.inRecordMode()) {
             recordInteraction();
-        }*/
+        }
     }
 
-    private String readResponseBody() {
-        String body = null;
-        try {
-            BufferedReader in = new BufferedReader(new InputStreamReader(this.connection.getInputStream()));
-            String inputLine;
-            StringBuilder content = new StringBuilder();
-            while ((inputLine = in.readLine()) != null) {
-                content.append(inputLine);
-            }
-            in.close();
-            body = content.toString();
-        } catch (IOException ignored) {
-        }
-        return body;
+    private void clearCache() {
+        this.cachedInteraction = null;
+        this.requestURL = null;
+        this.requestRequestProperties = null;
+        this.requestRequestMethod = null;
+        this.responseResponseCode = -1;
+        this.responseResponseMessage = null;
+        this.responseHeaderFields = null;
+        this.responseInputStream = null;
+        this.responseCached = false;
     }
 
     @Override
@@ -286,6 +276,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      */
     @Override
     public String getHeaderFieldKey(int n) {
+        cacheAndRecordIfNeeded();
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
@@ -295,9 +286,6 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
                 }
             }
             return null;
-        } else if(this.vcr.inRecordMode()) {
-            // can't change properties after getting
-            recordInteraction();
         }
         return this.connection.getHeaderFieldKey(n);
     }
@@ -416,6 +404,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      */
     @Override
     public String getHeaderField(int n) {
+        cacheAndRecordIfNeeded();
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
@@ -425,9 +414,6 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
                 }
             }
             return null;
-        } else if(this.vcr.inRecordMode()) {
-            // can't change properties after getting
-            recordInteraction();
         }
         return this.connection.getHeaderField(n);
     }
@@ -474,6 +460,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      */
     @Override
     public String getRequestMethod() {
+        cacheAndRecordIfNeeded();
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
@@ -483,11 +470,8 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
                 }
             }
             return null;
-        } else if(this.vcr.inRecordMode()) {
-            // can't change properties after getting
-            recordInteraction();
         }
-        return this.connection.getRequestMethod();
+        return this.requestRequestMethod;
     }
 
     /**
@@ -514,9 +498,6 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
     @Override
     public void setRequestMethod(String method) throws ProtocolException {
         this.connection.setRequestMethod(method);
-        /*if (this.vcr.inRecordMode()) {
-            recordInteraction();
-        }*/
     }
 
     /**
@@ -535,6 +516,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      */
     @Override
     public int getResponseCode() throws IOException {
+        cacheAndRecordIfNeeded();
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
@@ -544,11 +526,8 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
                 }
             }
             return -1;
-        } else if(this.vcr.inRecordMode()) {
-            // can't change properties after getting
-            recordInteraction();
         }
-        return this.connection.getResponseCode();
+        return this.responseResponseCode;
     }
 
     /**
@@ -567,6 +546,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      */
     @Override
     public String getResponseMessage() throws IOException {
+        cacheAndRecordIfNeeded();
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
@@ -576,11 +556,8 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
                 }
             }
             return null;
-        } else if(this.vcr.inRecordMode()) {
-            // can't change properties after getting
-            recordInteraction();
         }
-        return this.connection.getResponseMessage();
+        return this.responseResponseMessage;
     }
 
     /**
@@ -620,7 +597,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
     @Override
     public InputStream getErrorStream() {
         // ignore for cassette
-        return this.connection.getErrorStream();
+        return this.responseErrorStream;
     }
 
     /**
@@ -716,6 +693,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      */
     @Override
     public URL getURL() {
+        cacheAndRecordIfNeeded();
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
@@ -725,11 +703,8 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
                 }
             }
             return null;
-        } else if(this.vcr.inRecordMode()) {
-            // can't change properties after getting
-            recordInteraction();
         }
-        return this.connection.getURL();
+        return this.requestURL;
     }
 
     /**
@@ -781,6 +756,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      */
     @Override
     public String getHeaderField(String name) {
+        cacheAndRecordIfNeeded();
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
@@ -790,9 +766,6 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
                 }
             }
             return null;
-        } else if(this.vcr.inRecordMode()) {
-            // can't change properties after getting
-            recordInteraction();
         }
         return this.connection.getHeaderField(name);
     }
@@ -809,6 +782,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      */
     @Override
     public Map<String, List<String>> getHeaderFields() {
+        cacheAndRecordIfNeeded();
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
@@ -818,11 +792,8 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
                 }
             }
             return null;
-        } else if(this.vcr.inRecordMode()) {
-            // can't change properties after getting
-            recordInteraction();
         }
-        return this.connection.getHeaderFields();
+        return this.responseHeaderFields;
     }
 
     /**
@@ -873,6 +844,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      */
     @Override
     public Object getContent() throws IOException {
+        cacheAndRecordIfNeeded();
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
@@ -882,9 +854,6 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
                 }
             }
             return null;
-        } else if(this.vcr.inRecordMode()) {
-            // can't change properties after getting
-            recordInteraction();
         }
         return this.connection.getContent();
     }
@@ -1108,7 +1077,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
     public void setRequestProperty(String key, String value) {
         List<String> values = new ArrayList<>();
         values.add(value);
-        this.headers.put(key, values);
+        this.requestRequestProperties.put(key, values);
         this.connection.setRequestProperty(key, value);
         /*if (this.vcr.inRecordMode()) {
             recordInteraction();
@@ -1132,7 +1101,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
     public void addRequestProperty(String key, String value) {
         List<String> values = new ArrayList<>();
         values.add(value);
-        this.headers.put(key, values);
+        this.requestRequestProperties.put(key, values);
         this.connection.addRequestProperty(key, value);
         /*if (this.vcr.inRecordMode()) {
             recordInteraction();
@@ -1151,6 +1120,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      */
     @Override
     public String getRequestProperty(String key) {
+        cacheAndRecordIfNeeded();
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
@@ -1160,9 +1130,6 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
                 }
             }
             return null;
-        } else if(this.vcr.inRecordMode()) {
-            // can't change properties after getting
-            recordInteraction();
         }
         return this.connection.getRequestProperty(key);
     }
@@ -1181,6 +1148,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      */
     @Override
     public Map<String, List<String>> getRequestProperties() {
+        cacheAndRecordIfNeeded();
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
                 try {
@@ -1190,17 +1158,14 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
                 }
             }
             return null;
-        } else if(this.vcr.inRecordMode()) {
-            // can't change properties after getting
-            recordInteraction();
         }
-        return this.connection.getRequestProperties();
+        return this.requestRequestProperties;
     }
 
     @Override
     public InputStream getInputStream() throws IOException {
         // ignore for cassette
-        return this.connection.getInputStream();
+        return this.responseInputStream;
     }
 
     @SuppressWarnings ("deprecation")
@@ -1351,6 +1316,22 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
         // ignore for cassette
         return this.connection.getOutputStream();
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     @Override
     public String getCipherSuite() {
