@@ -24,6 +24,8 @@ import java.net.URLEncoder;
 import java.net.UnknownServiceException;
 import java.nio.charset.StandardCharsets;
 import java.security.Permission;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -40,6 +42,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
 
     private String body;
     private String queryString;
+    private Map<String, List<String>> headers = new HashMap<>();
 
     public VCRHttpURLConnection(URL url, VCR vcr) throws IOException {
         // this super is not used
@@ -86,7 +89,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
             request.setUriString(tempUrlWithParams);
             request.setBody(body);
             request.setMethod(this.connection.getRequestMethod());
-            request.setHeaders(this.connection.getRequestProperties());
+            request.setHeaders(this.headers);
             return request;
         } catch (URISyntaxException ignored) {
         }
@@ -1095,6 +1098,9 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public void setRequestProperty(String key, String value) {
+        List<String> values = new ArrayList<>();
+        values.add(value);
+        this.headers.put(key, values);
         this.connection.setRequestProperty(key, value);
         /*if (this.vcr.inRecordMode()) {
             recordInteraction();
@@ -1116,6 +1122,9 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public void addRequestProperty(String key, String value) {
+        List<String> values = new ArrayList<>();
+        values.add(value);
+        this.headers.put(key, values);
         this.connection.addRequestProperty(key, value);
         /*if (this.vcr.inRecordMode()) {
             recordInteraction();
