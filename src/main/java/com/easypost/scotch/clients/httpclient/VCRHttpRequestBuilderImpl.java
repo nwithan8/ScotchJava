@@ -1,7 +1,6 @@
 package com.easypost.scotch.clients.httpclient;
 
 import com.easypost.scotch.VCR;
-import com.easypost.scotch.tools.VCRUtils;
 
 import java.net.URI;
 import java.net.http.HttpRequest;
