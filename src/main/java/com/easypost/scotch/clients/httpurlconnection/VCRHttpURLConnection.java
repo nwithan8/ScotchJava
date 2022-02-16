@@ -89,6 +89,9 @@ public class VCRHttpURLConnection extends HttpURLConnection {
     private Response createResponse() {
         Response response = new Response();
         try {
+            if (!connected) {
+                this.connection.connect();
+            }
             response.setStatusCode(this.connection.getResponseCode());
             response.setMessage(this.connection.getResponseMessage());
             response.setUri(this.connection.getURL().toURI());

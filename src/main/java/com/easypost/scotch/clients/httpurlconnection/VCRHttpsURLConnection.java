@@ -9,7 +9,6 @@ import com.easypost.scotch.interaction.Response;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLPeerUnverifiedException;
-import javax.net.ssl.SSLPermission;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocketFactory;
 import java.io.BufferedReader;
@@ -31,7 +30,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.Permission;
 import java.security.Principal;
 import java.security.cert.Certificate;
-import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -98,6 +96,9 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
     private Response createResponse() {
         Response response = new Response();
         try {
+            if (!connected) {
+                this.connection.connect();
+            }
             response.setStatusCode(this.connection.getResponseCode());
             response.setMessage(this.connection.getResponseMessage());
             response.setUri(this.connection.getURL().toURI());
@@ -1298,7 +1299,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
     /**
      * Returns the server's principal which was established as part of
      * defining the session.
-     * <P>
+     * <p>
      * Note: Subclasses should override this method. If not overridden, it
      * will default to returning the X500Principal of the server's end-entity
      * certificate for certificate-based ciphersuites, or throw an
@@ -1308,26 +1309,22 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * @return the server's principal. Returns an X500Principal of the
      * end-entity certiticate for X509-based cipher suites, and
      * KerberosPrincipal for Kerberos cipher suites.
-     *
      * @throws SSLPeerUnverifiedException if the peer was not verified
-     * @throws IllegalStateException if this method is called before
-     *          the connection has been established.
-     *
+     * @throws IllegalStateException      if this method is called before
+     *                                    the connection has been established.
      * @see #getServerCertificates()
      * @see #getLocalPrincipal()
-     *
      * @since 1.5
      */
     @Override
-    public Principal getPeerPrincipal()
-            throws SSLPeerUnverifiedException {
+    public Principal getPeerPrincipal() throws SSLPeerUnverifiedException {
         // ignore for cassette
         return this.connection.getPeerPrincipal();
     }
 
     /**
      * Returns the principal that was sent to the server during handshaking.
-     * <P>
+     * <p>
      * Note: Subclasses should override this method. If not overridden, it
      * will default to returning the X500Principal of the end-entity certificate
      * that was sent to the server for certificate-based ciphersuites or,
@@ -1337,39 +1334,16 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
      * of the end-entity certificate for X509-based cipher suites, and
      * KerberosPrincipal for Kerberos cipher suites. If no principal was
      * sent, then null is returned.
-     *
      * @throws IllegalStateException if this method is called before
-     *          the connection has been established.
-     *
+     *                               the connection has been established.
      * @see #getLocalCertificates()
      * @see #getPeerPrincipal()
-     *
      * @since 1.5
      */
     @Override
     public Principal getLocalPrincipal() {
         // ignore for cassette
         return this.connection.getLocalPrincipal();
-    }
-
-    /**
-     * Sets the <code>HostnameVerifier</code> for this instance.
-     * <P>
-     * New instances of this class inherit the default static hostname
-     * verifier set by {@link #setDefaultHostnameVerifier(HostnameVerifier)
-     * setDefaultHostnameVerifier}.  Calls to this method replace
-     * this object's <code>HostnameVerifier</code>.
-     *
-     * @param v the host name verifier
-     * @throws IllegalArgumentException if the <code>HostnameVerifier</code>
-     *  parameter is null.
-     * @see #getHostnameVerifier()
-     * @see #setDefaultHostnameVerifier(HostnameVerifier)
-     */
-    @Override
-    public void setHostnameVerifier(HostnameVerifier v) {
-        // ignore for cassette
-        this.connection.setHostnameVerifier(v);
     }
 
     /**
@@ -1386,27 +1360,23 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
     }
 
     /**
-     * Sets the <code>SSLSocketFactory</code> to be used when this instance
-     * creates sockets for secure https URL connections.
-     * <P>
-     * New instances of this class inherit the default static
-     * <code>SSLSocketFactory</code> set by
-     * {@link #setDefaultSSLSocketFactory(SSLSocketFactory)
-     * setDefaultSSLSocketFactory}.  Calls to this method replace
-     * this object's <code>SSLSocketFactory</code>.
+     * Sets the <code>HostnameVerifier</code> for this instance.
+     * <p>
+     * New instances of this class inherit the default static hostname
+     * verifier set by {@link #setDefaultHostnameVerifier(HostnameVerifier)
+     * setDefaultHostnameVerifier}.  Calls to this method replace
+     * this object's <code>HostnameVerifier</code>.
      *
-     * @param sf the SSL socket factory
-     * @throws IllegalArgumentException if the <code>SSLSocketFactory</code>
-     *          parameter is null.
-     * @throws SecurityException if a security manager exists and its
-     *         <code>checkSetFactory</code> method does not allow
-     *         a socket factory to be specified.
-     * @see #getSSLSocketFactory()
+     * @param v the host name verifier
+     * @throws IllegalArgumentException if the <code>HostnameVerifier</code>
+     *                                  parameter is null.
+     * @see #getHostnameVerifier()
+     * @see #setDefaultHostnameVerifier(HostnameVerifier)
      */
     @Override
-    public void setSSLSocketFactory(SSLSocketFactory sf) {
+    public void setHostnameVerifier(HostnameVerifier v) {
         // ignore for cassette
-        this.connection.setSSLSocketFactory(sf);
+        this.connection.setHostnameVerifier(v);
     }
 
     /**
@@ -1423,24 +1393,44 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
     }
 
     /**
+     * Sets the <code>SSLSocketFactory</code> to be used when this instance
+     * creates sockets for secure https URL connections.
+     * <p>
+     * New instances of this class inherit the default static
+     * <code>SSLSocketFactory</code> set by
+     * {@link #setDefaultSSLSocketFactory(SSLSocketFactory)
+     * setDefaultSSLSocketFactory}.  Calls to this method replace
+     * this object's <code>SSLSocketFactory</code>.
+     *
+     * @param sf the SSL socket factory
+     * @throws IllegalArgumentException if the <code>SSLSocketFactory</code>
+     *                                  parameter is null.
+     * @throws SecurityException        if a security manager exists and its
+     *                                  <code>checkSetFactory</code> method does not allow
+     *                                  a socket factory to be specified.
+     * @see #getSSLSocketFactory()
+     */
+    @Override
+    public void setSSLSocketFactory(SSLSocketFactory sf) {
+        // ignore for cassette
+        this.connection.setSSLSocketFactory(sf);
+    }
+
+    /**
      * Returns an {@link Optional} containing the {@code SSLSession} in
      * use on this connection.  Returns an empty {@code Optional} if the
      * underlying implementation does not support this method.
      *
+     * @return an {@link Optional} containing the {@code SSLSession} in
+     * use on this connection.
+     * @throws IllegalStateException if this method is called before
+     *                               the connection has been established
      * @implSpec For compatibility, the default implementation of this
-     *           method returns an empty {@code Optional}.  Subclasses
-     *           should override this method with an appropriate
-     *           implementation since an application may need to access
-     *           additional parameters associated with the SSL session.
-     *
-     * @return   an {@link Optional} containing the {@code SSLSession} in
-     *           use on this connection.
-     *
-     * @throws   IllegalStateException if this method is called before
-     *           the connection has been established
-     *
+     * method returns an empty {@code Optional}.  Subclasses
+     * should override this method with an appropriate
+     * implementation since an application may need to access
+     * additional parameters associated with the SSL session.
      * @see SSLSession
-     *
      * @since 12
      */
     @Override
