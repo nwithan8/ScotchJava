@@ -1,44 +1,44 @@
 package com.easypost.scotch.clients.httpurlconnection;
 
+import com.easypost.scotch.ScotchMode;
 import com.easypost.scotch.VCR;
+import com.easypost.scotch.cassettes.Cassette;
 import com.easypost.scotch.interaction.Helpers;
 import com.easypost.scotch.interaction.HttpInteraction;
 import com.easypost.scotch.interaction.Request;
 import com.easypost.scotch.interaction.Response;
-import sun.net.www.protocol.http.Handler;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.Authenticator;
+import java.net.HttpRetryException;
+import java.net.HttpURLConnection;
 import java.net.ProtocolException;
-import java.net.Proxy;
+import java.net.SocketPermission;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.net.UnknownServiceException;
 import java.nio.charset.StandardCharsets;
+import java.security.Permission;
 import java.util.List;
 import java.util.Map;
 
-public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConnection {
+public class VCRHttpUrlConnection {
 
+    private final HttpURLConnection connection;
     private final VCR vcr;
     private HttpInteraction cachedInteraction;
+
     private String body;
     private String queryString;
 
-    public VCRHttpUrlConnection(URL url, VCR vcr) throws IOException {
-        super(url, new Handler());
-        this.vcr = vcr;
-        this.cachedInteraction = new HttpInteraction(new Request(), new Response());
-        this.body = null;
-        this.queryString = null;
-    }
-
-    public VCRHttpUrlConnection(URL url, VCR vcr, Proxy proxy) throws IOException {
-        super(url, proxy);
+    public VCRHttpUrlConnection(HttpURLConnection connection, VCR vcr) {
+        this.connection = connection;
         this.vcr = vcr;
         this.cachedInteraction = new HttpInteraction(new Request(), new Response());
         this.body = null;
@@ -62,13 +62,13 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
     private Request createRequest() {
         Request request = new Request();
         try {
-            String tempUrlWithParams = super.getURL().toURI().toString();
+            String tempUrlWithParams = this.connection.getURL().toURI().toString();
             if (queryString != null) {
                 tempUrlWithParams += "?" + queryString;
             }
             request.setUriString(tempUrlWithParams);
             request.setBody(body);
-            request.setMethod(super.getRequestMethod());
+            request.setMethod(this.connection.getRequestMethod());
         } catch (URISyntaxException ignored) {
         }
 
@@ -78,15 +78,11 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
     private Response createResponse() {
         Response response = new Response();
         try {
-            // response.setHeaders(super.getHeaderFields());
-            if (!connected) {
-                super.connect();
-            }
-            response.setStatusCode(super.getResponseCode());
-            response.setMessage(super.getResponseMessage());
-            response.setUri(super.getURL().toURI());
-            response.setHeaders(super.getHeaderFields());
-            response.setBody(Helpers.readBodyFromInputStream(super.getInputStream()));
+            response.setStatusCode(this.connection.getResponseCode());
+            response.setMessage(this.connection.getResponseMessage());
+            response.setUri(this.connection.getURL().toURI());
+            response.setBody(Helpers.readBodyFromInputStream(this.connection.getInputStream()));
+            response.setHeaders(this.connection.getHeaderFields());
         } catch (URISyntaxException | IOException ignored) {
         }
 
@@ -114,7 +110,7 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
         this.queryString = getParamsString(parameters);
 
         this.setDoOutput(true);
-        DataOutputStream out = new DataOutputStream(getOutputStream());
+        DataOutputStream out = new DataOutputStream(this.connection.getOutputStream());
         out.writeBytes(this.queryString);
 
         if (this.vcr.inRecordMode()) {
@@ -127,7 +123,7 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
         this.body = body;
 
         this.setDoOutput(true);
-        try (OutputStream os = getOutputStream()) {
+        try (OutputStream os = this.connection.getOutputStream()) {
             byte[] input = this.body.getBytes(StandardCharsets.UTF_8);
             os.write(input, 0, input.length);
         }
@@ -140,7 +136,8 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
     private String readResponseBody() {
         String body = null;
         try {
-            BufferedReader in = new BufferedReader(new InputStreamReader(getInputStream()));
+            BufferedReader in = new BufferedReader(
+                    new InputStreamReader(this.connection.getInputStream()));
             String inputLine;
             StringBuilder content = new StringBuilder();
             while ((inputLine = in.readLine()) != null) {
@@ -153,10 +150,9 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
         return body;
     }
 
-    @Override
     public void connect() throws IOException {
-        super.connect();
         // might as well load the cassette if we're replaying, or save if we're recording
+        this.connection.connect();
         if (this.vcr.inRecordMode()) {
             recordInteraction();
         } else if (this.vcr.inPlaybackMode()) {
@@ -164,11 +160,58 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
         }
     }
 
-    @Override
     public void disconnect() {
         // might as well record if we're connecting
-        super.disconnect();
+        this.connection.disconnect();
         recordInteraction();
+    }
+
+    public boolean usingProxy() {
+        return this.connection.usingProxy();
+    }
+
+    /**
+     * Supplies an {@link java.net.Authenticator Authenticator} to be used
+     * when authentication is requested through the HTTP protocol for
+     * this {@code VCRHttpUrlConnection}.
+     * If no authenticator is supplied, the
+     * {@linkplain Authenticator#setDefault(java.net.Authenticator) default
+     * authenticator} will be used.
+     *
+     * @param auth The {@code Authenticator} that should be used by this
+     *             {@code VCRHttpUrlConnection}.
+     * @throws UnsupportedOperationException if setting an Authenticator is
+     *                                       not supported by the underlying implementation.
+     * @throws IllegalStateException         if URLConnection is already connected.
+     * @throws NullPointerException          if the supplied {@code auth} is {@code null}.
+     * @implSpec The default behavior of this method is to unconditionally
+     * throw {@link UnsupportedOperationException}. Concrete
+     * implementations of {@code VCRHttpUrlConnection}
+     * which support supplying an {@code Authenticator} for a
+     * specific {@code VCRHttpUrlConnection} instance should
+     * override this method to implement a different behavior.
+     * @implNote Depending on authentication schemes, an implementation
+     * may or may not need to use the provided authenticator
+     * to obtain a password. For instance, an implementation that
+     * relies on third-party security libraries may still invoke the
+     * default authenticator if these libraries are configured
+     * to do so.
+     * Likewise, an implementation that supports transparent
+     * NTLM authentication may let the system attempt
+     * to connect using the system user credentials first,
+     * before invoking the provided authenticator.
+     * <br>
+     * However, if an authenticator is specifically provided,
+     * then the underlying connection may only be reused for
+     * {@code VCRHttpUrlConnection} instances which share the same
+     * {@code Authenticator} instance, and authentication information,
+     * if cached, may only be reused for an {@code VCRHttpUrlConnection}
+     * sharing that same {@code Authenticator}.
+     * @since 9
+     */
+    public void setAuthenticator(Authenticator auth) {
+        // ignore for cassette
+        this.connection.setAuthenticator(auth);
     }
 
     /**
@@ -182,7 +225,6 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
      * @return the key for the {@code n}<sup>th</sup> header field,
      * or {@code null} if the key does not exist.
      */
-    @Override
     public String getHeaderFieldKey(int n) {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -194,7 +236,101 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
             }
             return null;
         }
-        return super.getHeaderFieldKey(n);
+        return this.connection.getHeaderFieldKey(n);
+    }
+
+    /**
+     * This method is used to enable streaming of a HTTP request body
+     * without internal buffering, when the content length is known in
+     * advance.
+     * <p>
+     * An exception will be thrown if the application
+     * attempts to write more data than the indicated
+     * content-length, or if the application closes the OutputStream
+     * before writing the indicated amount.
+     * <p>
+     * When output streaming is enabled, authentication
+     * and redirection cannot be handled automatically.
+     * A HttpRetryException will be thrown when reading
+     * the response if authentication or redirection are required.
+     * This exception can be queried for the details of the error.
+     * <p>
+     * This method must be called before the URLConnection is connected.
+     * <p>
+     * <B>NOTE:</B> {@link #setFixedLengthStreamingMode(long)} is recommended
+     * instead of this method as it allows larger content lengths to be set.
+     *
+     * @param contentLength The number of bytes which will be written
+     *                      to the OutputStream.
+     * @throws IllegalStateException    if URLConnection is already connected
+     *                                  or if a different streaming mode is already enabled.
+     * @throws IllegalArgumentException if a content length less than
+     *                                  zero is specified.
+     * @see #setChunkedStreamingMode(int)
+     * @since 1.5
+     */
+    public void setFixedLengthStreamingMode(int contentLength) {
+        // ignore for cassette
+        this.connection.setFixedLengthStreamingMode(contentLength);
+    }
+
+    /**
+     * This method is used to enable streaming of a HTTP request body
+     * without internal buffering, when the content length is known in
+     * advance.
+     *
+     * <P> An exception will be thrown if the application attempts to write
+     * more data than the indicated content-length, or if the application
+     * closes the OutputStream before writing the indicated amount.
+     *
+     * <P> When output streaming is enabled, authentication and redirection
+     * cannot be handled automatically. A {@linkplain HttpRetryException} will
+     * be thrown when reading the response if authentication or redirection
+     * are required. This exception can be queried for the details of the
+     * error.
+     *
+     * <P> This method must be called before the URLConnection is connected.
+     *
+     * <P> The content length set by invoking this method takes precedence
+     * over any value set by {@link #setFixedLengthStreamingMode(int)}.
+     *
+     * @param contentLength The number of bytes which will be written to the OutputStream.
+     * @throws IllegalStateException    if URLConnection is already connected or if a different
+     *                                  streaming mode is already enabled.
+     * @throws IllegalArgumentException if a content length less than zero is specified.
+     * @since 1.7
+     */
+    public void setFixedLengthStreamingMode(long contentLength) {
+        // ignore for cassette
+        this.connection.setFixedLengthStreamingMode(contentLength);
+    }
+
+    /**
+     * This method is used to enable streaming of a HTTP request body
+     * without internal buffering, when the content length is <b>not</b>
+     * known in advance. In this mode, chunked transfer encoding
+     * is used to send the request body. Note, not all HTTP servers
+     * support this mode.
+     * <p>
+     * When output streaming is enabled, authentication
+     * and redirection cannot be handled automatically.
+     * A HttpRetryException will be thrown when reading
+     * the response if authentication or redirection are required.
+     * This exception can be queried for the details of the error.
+     * <p>
+     * This method must be called before the URLConnection is connected.
+     *
+     * @param chunklen The number of bytes to write in each chunk.
+     *                 If chunklen is less than or equal to zero, a default
+     *                 value will be used.
+     * @throws IllegalStateException if URLConnection is already connected
+     *                               or if a different streaming mode is already enabled.
+     * @see #setFixedLengthStreamingMode(int)
+     * @since 1.5
+     */
+    public void setChunkedStreamingMode(int chunklen) {
+        // ignore for cassette
+        this.connection.setChunkedStreamingMode(chunklen);
     }
 
     /**
@@ -212,7 +348,6 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
      * or {@code null} if the value does not exist.
      * @see java.net.HttpURLConnection#getHeaderFieldKey(int)
      */
-    @Override
     public String getHeaderField(int n) {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -224,7 +359,39 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
             }
             return null;
         }
-        return super.getHeaderField(n);
+        return this.connection.getHeaderField(n);
+    }
+
+    /**
+     * Returns the value of this {@code VCRHttpUrlConnection}'s
+     * {@code instanceFollowRedirects} field.
+     *
+     * @return the value of this {@code VCRHttpUrlConnection}'s
+     * {@code instanceFollowRedirects} field.
+     * @see #setInstanceFollowRedirects(boolean)
+     * @since 1.3
+     */
+    public boolean getInstanceFollowRedirects() {
+        // ignore for cassette
+        return this.connection.getInstanceFollowRedirects();
+    }
+
+    /**
+     * Sets whether HTTP redirects (requests with response code 3xx) should
+     * be automatically followed by this {@code VCRHttpUrlConnection}
+     * instance.
+     * <p>
+     * The default value comes from followRedirects, which defaults to
+     * true.
+     *
+     * @param followRedirects a {@code boolean} indicating
+     *                        whether or not to follow HTTP redirects.
+     * @see #getInstanceFollowRedirects
+     * @since 1.3
+     */
+    public void setInstanceFollowRedirects(boolean followRedirects) {
+        // ignore for cassette
+        this.connection.setInstanceFollowRedirects(followRedirects);
     }
 
     /**
@@ -233,7 +400,6 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
      * @return the HTTP request method
      * @see #setRequestMethod(java.lang.String)
      */
-    @Override
     public String getRequestMethod() {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -245,7 +411,7 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
             }
             return null;
         }
-        return super.getRequestMethod();
+        return this.connection.getRequestMethod();
     }
 
     /**
@@ -269,9 +435,8 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
      *                           NetPermission is not granted.
      * @see #getRequestMethod()
      */
-    @Override
     public void setRequestMethod(String method) throws ProtocolException {
-        super.setRequestMethod(method);
+        this.connection.setRequestMethod(method);
         if (this.vcr.inRecordMode()) {
             recordInteraction();
         }
@@ -291,7 +456,6 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
      * @return the HTTP Status-Code, or -1
      * @throws IOException if an error occurred connecting to the server.
      */
-    @Override
     public int getResponseCode() throws IOException {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -303,7 +467,7 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
             }
             return -1;
         }
-        return super.getResponseCode();
+        return this.connection.getResponseCode();
     }
 
     /**
@@ -320,7 +484,6 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
      * @return the HTTP response message, or {@code null}
      * @throws IOException if an error occurred connecting to the server.
      */
-    @Override
     public String getResponseMessage() throws IOException {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -332,7 +495,125 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
             }
             return null;
         }
-        return super.getResponseMessage();
+        return this.connection.getResponseMessage();
+    }
+
+    /**
+     * Returns a {@link SocketPermission} object representing the
+     * permission necessary to connect to the destination host and port.
+     *
+     * @return a {@code SocketPermission} object representing the
+     * permission necessary to connect to the destination
+     * host and port.
+     * @throws IOException if an error occurs while computing
+     *                     the permission.
+     */
+    public Permission getPermission() throws IOException {
+        // ignore for cassette
+        return this.connection.getPermission();
+    }
+
+    /**
+     * Returns the error stream if the connection failed
+     * but the server sent useful data nonetheless. The
+     * typical example is when an HTTP server responds
+     * with a 404, which will cause a FileNotFoundException
+     * to be thrown in connect, but the server sent an HTML
+     * help page with suggestions as to what to do.
+     *
+     * <p>This method will not cause a connection to be initiated.  If
+     * the connection was not connected, or if the server did not have
+     * an error while connecting or if the server had an error but
+     * no error data was sent, this method will return null. This is
+     * the default.
+     *
+     * @return an error stream if any, null if there have been no
+     * errors, the connection is not connected or the server sent no
+     * useful data.
+     */
+    public InputStream getErrorStream() {
+        // ignore for cassette
+        return this.connection.getErrorStream();
+    }
+
+    /**
+     * Returns setting for connect timeout.
+     * <p>
+     * 0 return implies that the option is disabled
+     * (i.e., timeout of infinity).
+     *
+     * @return an {@code int} that indicates the connect timeout
+     * value in milliseconds
+     * @see #setConnectTimeout(int)
+     * @see #connect()
+     * @since 1.5
+     */
+    public int getConnectTimeout() {
+        // ignore for cassette
+        return this.connection.getConnectTimeout();
+    }
+
+    /**
+     * Sets a specified timeout value, in milliseconds, to be used
+     * when opening a communications link to the resource referenced
+     * by this URLConnection.  If the timeout expires before the
+     * connection can be established, a
+     * java.net.SocketTimeoutException is raised. A timeout of zero is
+     * interpreted as an infinite timeout.
+     *
+     * <p> Some non-standard implementation of this method may ignore
+     * the specified timeout. To see the connect timeout set, please
+     * call getConnectTimeout().
+     *
+     * @param timeout an {@code int} that specifies the connect
+     *                timeout value in milliseconds
+     * @throws IllegalArgumentException if the timeout parameter is negative
+     * @see #getConnectTimeout()
+     * @see #connect()
+     * @since 1.5
+     */
+    public void setConnectTimeout(int timeout) {
+        // ignore for cassette
+        this.connection.setConnectTimeout(timeout);
+    }
+
+    /**
+     * Returns setting for read timeout. 0 return implies that the
+     * option is disabled (i.e., timeout of infinity).
+     *
+     * @return an {@code int} that indicates the read timeout
+     * value in milliseconds
+     * @see #setReadTimeout(int)
+     * @see InputStream#read()
+     * @since 1.5
+     */
+    public int getReadTimeout() {
+        // ignore for cassette
+        return this.connection.getReadTimeout();
+    }
+
+    /**
+     * Sets the read timeout to a specified timeout, in
+     * milliseconds. A non-zero value specifies the timeout when
+     * reading from Input stream when a connection is established to a
+     * resource. If the timeout expires before there is data available
+     * for read, a java.net.SocketTimeoutException is raised. A
+     * timeout of zero is interpreted as an infinite timeout.
+     *
+     * <p> Some non-standard implementation of this method ignores the
+     * specified timeout. To see the read timeout set, please call
+     * getReadTimeout().
+     *
+     * @param timeout an {@code int} that specifies the timeout
+     *                value to be used in milliseconds
+     * @throws IllegalArgumentException if the timeout parameter is negative
+     * @see #getReadTimeout()
+     * @see InputStream#read()
+     * @since 1.5
+     */
+    public void setReadTimeout(int timeout) {
+        // ignore for cassette
+        this.connection.setReadTimeout(timeout);
     }
 
     /**
@@ -342,7 +623,6 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
      * @return the value of this {@code URLConnection}'s {@code URL}
      * field.
      */
-    @Override
     public URL getURL() {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -354,7 +634,41 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
             }
             return null;
         }
-        return super.getURL();
+        return this.connection.getURL();
+    }
+
+    /**
+     * Returns the value of the {@code content-type} header field.
+     *
+     * @return the content type of the resource that the URL references,
+     * or {@code null} if not known.
+     * @see java.net.URLConnection#getHeaderField(java.lang.String)
+     */
+    public String getContentType() {
+        return getHeaderField("content-type");
+    }
+
+    /**
+     * Returns the value of the {@code content-encoding} header field.
+     *
+     * @return the content encoding of the resource that the URL references,
+     * or {@code null} if not known.
+     * @see java.net.URLConnection#getHeaderField(java.lang.String)
+     */
+    public String getContentEncoding() {
+        return getHeaderField("content-encoding");
+    }
+
+    /**
+     * Returns the value of the {@code expires} header field.
+     *
+     * @return the expiration date of the resource that this URL references,
+     * or 0 if not known. The value is the number of milliseconds since
+     * January 1, 1970 GMT.
+     * @see java.net.URLConnection#getHeaderField(java.lang.String)
+     */
+    public long getExpiration() {
+        return this.connection.getExpiration();
     }
 
     /**
@@ -367,7 +681,6 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
      * @return the value of the named header field, or {@code null}
      * if there is no such field in the header.
      */
-    @Override
     public String getHeaderField(String name) {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -379,7 +692,7 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
             }
             return null;
         }
-        return super.getHeaderField(name);
+        return this.connection.getHeaderField(name);
     }
 
     /**
@@ -392,7 +705,6 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
      * @return a Map of header fields
      * @since 1.4
      */
-    @Override
     public Map<String, List<String>> getHeaderFields() {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -404,7 +716,7 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
             }
             return null;
         }
-        return super.getHeaderFields();
+        return this.connection.getHeaderFields();
     }
 
     /**
@@ -453,7 +765,6 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
      * @see java.net.URLConnection#getContentType()
      * @see java.net.URLConnection#setContentHandlerFactory(java.net.ContentHandlerFactory)
      */
-    @Override
     public Object getContent() throws IOException {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -465,7 +776,193 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
             }
             return null;
         }
-        return super.getContent();
+        return this.connection.getContent();
+    }
+
+    /**
+     * Returns a {@code String} representation of this URL connection.
+     *
+     * @return a string representation of this {@code URLConnection}.
+     */
+    public String toString() {
+        // ignore for cassette
+        return this.connection.toString();
+    }
+
+    /**
+     * Returns the value of this {@code URLConnection}'s
+     * {@code doInput} flag.
+     *
+     * @return the value of this {@code URLConnection}'s
+     * {@code doInput} flag.
+     * @see #setDoInput(boolean)
+     */
+    public boolean getDoInput() {
+        // ignore for cassette
+        return this.connection.getDoInput();
+    }
+
+    /**
+     * Sets the value of the {@code doInput} field for this
+     * {@code URLConnection} to the specified value.
+     * <p>
+     * A URL connection can be used for input and/or output.  Set the doInput
+     * flag to true if you intend to use the URL connection for input,
+     * false if not.  The default is true.
+     *
+     * @param doinput the new value.
+     * @throws IllegalStateException if already connected
+     * @see #getDoInput()
+     */
+    public void setDoInput(boolean doinput) {
+        // ignore for cassette
+        this.connection.setDoInput(doinput);
+    }
+
+    /**
+     * Returns the value of this {@code URLConnection}'s
+     * {@code doOutput} flag.
+     *
+     * @return the value of this {@code URLConnection}'s
+     * {@code doOutput} flag.
+     * @see #setDoOutput(boolean)
+     */
+    public boolean getDoOutput() {
+        // ignore for cassette
+        return this.connection.getDoOutput();
+    }
+
+    /**
+     * Sets the value of the {@code doOutput} field for this
+     * {@code URLConnection} to the specified value.
+     * <p>
+     * A URL connection can be used for input and/or output.  Set the doOutput
+     * flag to true if you intend to use the URL connection for output,
+     * false if not.  The default is false.
+     *
+     * @param dooutput the new value.
+     * @throws IllegalStateException if already connected
+     * @see #getDoOutput()
+     */
+    public void setDoOutput(boolean dooutput) {
+        // ignore for cassette
+        if (this.connection.getDoOutput() != dooutput) {
+            this.connection.setDoOutput(dooutput);
+        }
+    }
+
+    /**
+     * Returns the value of the {@code allowUserInteraction} field for
+     * this object.
+     *
+     * @return the value of the {@code allowUserInteraction} field for
+     * this object.
+     * @see #setAllowUserInteraction(boolean)
+     */
+    public boolean getAllowUserInteraction() {
+        // ignore for cassette
+        return this.connection.getAllowUserInteraction();
+    }
+
+    /**
+     * Set the value of the {@code allowUserInteraction} field of
+     * this {@code URLConnection}.
+     *
+     * @param allowuserinteraction the new value.
+     * @throws IllegalStateException if already connected
+     * @see #getAllowUserInteraction()
+     */
+    public void setAllowUserInteraction(boolean allowuserinteraction) {
+        // ignore for cassette
+        this.connection.setAllowUserInteraction(allowuserinteraction);
+    }
+
+    /**
+     * Returns the value of this {@code URLConnection}'s
+     * {@code useCaches} field.
+     *
+     * @return the value of this {@code URLConnection}'s
+     * {@code useCaches} field.
+     * @see #setUseCaches(boolean)
+     */
+    public boolean getUseCaches() {
+        // ignore for cassette
+        return this.connection.getUseCaches();
+    }
+
+    /**
+     * Sets the value of the {@code useCaches} field of this
+     * {@code URLConnection} to the specified value.
+     * <p>
+     * Some protocols do caching of documents.  Occasionally, it is important
+     * to be able to "tunnel through" and ignore the caches (e.g., the
+     * "reload" button in a browser).  If the UseCaches flag on a connection
+     * is true, the connection is allowed to use whatever caches it can.
+     * If false, caches are to be ignored.
+     * The default value comes from defaultUseCaches, which defaults to
+     * true.
+     *
+     * @param usecaches a {@code boolean} indicating whether
+     *                  or not to allow caching
+     * @throws IllegalStateException if already connected
+     * @see #getUseCaches()
+     */
+    public void setUseCaches(boolean usecaches) {
+        // ignore for cassette
+        this.connection.setUseCaches(usecaches);
+    }
+
+    /**
+     * Returns the value of this object's {@code ifModifiedSince} field.
+     *
+     * @return the value of this object's {@code ifModifiedSince} field.
+     * @see #setIfModifiedSince(long)
+     */
+    public long getIfModifiedSince() {
+        // ignore for cassette
+        return this.connection.getIfModifiedSince();
+    }
+
+    /**
+     * Sets the value of the {@code ifModifiedSince} field of
+     * this {@code URLConnection} to the specified value.
+     *
+     * @param ifmodifiedsince the new value.
+     * @throws IllegalStateException if already connected
+     * @see #getIfModifiedSince()
+     */
+    public void setIfModifiedSince(long ifmodifiedsince) {
+        // ignore for cassette
+        this.connection.setIfModifiedSince(ifmodifiedsince);
+    }
+
+    /**
+     * Returns the default value of a {@code URLConnection}'s
+     * {@code useCaches} flag.
+     * <p>
+     * This default is "sticky", being a part of the static state of all
+     * URLConnections.  This flag applies to the next, and all following
+     * URLConnections that are created.
+     *
+     * @return the default value of a {@code URLConnection}'s
+     * {@code useCaches} flag.
+     * @see #setDefaultUseCaches(boolean)
+     */
+    public boolean getDefaultUseCaches() {
+        // ignore for cassette
+        return this.connection.getDefaultUseCaches();
+    }
+
+    /**
+     * Sets the default value of the {@code useCaches} field to the
+     * specified value.
+     *
+     * @param defaultusecaches the new value.
+     * @see #getDefaultUseCaches()
+     */
+    public void setDefaultUseCaches(boolean defaultusecaches) {
+        // ignore for cassette
+        this.connection.setDefaultUseCaches(defaultusecaches);
     }
 
     /**
@@ -484,9 +981,8 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
      * @throws NullPointerException  if key is {@code null}
      * @see #getRequestProperty(java.lang.String)
      */
-    @Override
     public void setRequestProperty(String key, String value) {
-        super.setRequestProperty(key, value);
+        this.connection.setRequestProperty(key, value);
         if (this.vcr.inRecordMode()) {
             recordInteraction();
         }
@@ -505,9 +1001,8 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
      * @see #getRequestProperties()
      * @since 1.4
      */
-    @Override
     public void addRequestProperty(String key, String value) {
-        super.addRequestProperty(key, value);
+        this.connection.addRequestProperty(key, value);
         if (this.vcr.inRecordMode()) {
             recordInteraction();
         }
@@ -523,7 +1018,6 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
      * @throws IllegalStateException if already connected
      * @see #setRequestProperty(java.lang.String, java.lang.String)
      */
-    @Override
     public String getRequestProperty(String key) {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -535,7 +1029,7 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
             }
             return null;
         }
-        return super.getRequestProperty(key);
+        return this.connection.getRequestProperty(key);
     }
 
     /**
@@ -550,7 +1044,6 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
      * @throws IllegalStateException if already connected
      * @since 1.4
      */
-    @Override
     public Map<String, List<String>> getRequestProperties() {
         if (this.vcr.inPlaybackMode()) {
             if (loadMatchingInteraction()) {
@@ -562,6 +1055,10 @@ public class VCRHttpUrlConnection extends sun.net.www.protocol.http.HttpURLConne
             }
             return null;
         }
-        return super.getRequestProperties();
+        return this.connection.getRequestProperties();
+    }
+
+    public InputStream getInputStream() throws IOException {
+        return this.connection.getInputStream();
     }
 }

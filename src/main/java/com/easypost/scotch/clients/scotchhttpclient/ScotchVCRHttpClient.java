@@ -1,6 +1,8 @@
 package com.easypost.scotch.clients.scotchhttpclient;
 
+import com.easypost.scotch.ScotchMode;
 import com.easypost.scotch.VCR;
+import com.easypost.scotch.cassettes.Cassette;
 import com.easypost.scotch.interaction.Helpers;
 import com.easypost.scotch.interaction.HttpInteraction;
 import com.easypost.scotch.interaction.Request;

@@ -1,5 +1,6 @@
 package com.easypost.scotch.clients.httpclient;
 
+import jdk.internal.net.http.HttpRequestImpl;
 import jdk.internal.net.http.common.Utils;
 
 import java.net.http.HttpHeaders;

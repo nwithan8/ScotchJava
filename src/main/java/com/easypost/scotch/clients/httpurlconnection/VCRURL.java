@@ -1,7 +1,10 @@
 package com.easypost.scotch.clients.httpurlconnection;
 
+import com.easypost.scotch.ScotchMode;
 import com.easypost.scotch.VCR;
+import com.easypost.scotch.cassettes.Cassette;
 
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.Proxy;
 import java.net.URL;
@@ -43,10 +46,12 @@ public class VCRURL {
     }
 
     public VCRHttpUrlConnection openConnection() throws java.io.IOException {
-        return new VCRHttpUrlConnection(this.url, this.vcr);
+        HttpURLConnection httpURLConnection = (HttpURLConnection) this.url.openConnection();
+        return new VCRHttpUrlConnection(httpURLConnection, this.vcr);
     }
 
     public VCRHttpUrlConnection openConnection(Proxy proxy) throws java.io.IOException {
-        return new VCRHttpUrlConnection(this.url, this.vcr, proxy);
+        HttpURLConnection httpURLConnection = (HttpURLConnection) this.url.openConnection(proxy);
+        return new VCRHttpUrlConnection(httpURLConnection, this.vcr);
     }
 }
