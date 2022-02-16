@@ -139,16 +139,6 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
         return this.cachedInteraction != null;
     }
 
-    private InputStream copyInputStream(InputStream stream) {
-        try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            stream.transferTo(baos);
-            return new ByteArrayInputStream(baos.toByteArray());
-        } catch (IOException ignored) {
-            return new ByteArrayInputStream(new byte[] {});
-        }
-    }
-
     private void cacheHttpRequest() {
         try {
             this.requestRequestMethod = this.connection.getRequestMethod();
@@ -167,8 +157,8 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
             this.responseResponseCode = this.connection.getResponseCode();
             this.responseResponseMessage = this.connection.getResponseMessage();
             this.responseHeaderFields = this.connection.getHeaderFields();
-            this.responseInputStream = copyInputStream(this.connection.getInputStream());
-            this.responseErrorStream = copyInputStream(this.connection.getErrorStream());
+            this.responseInputStream = Helpers.copyInputStream(this.connection.getInputStream());
+            this.responseErrorStream = Helpers.copyInputStream(this.connection.getErrorStream());
             this.responseCached = true;
         } catch (Exception ignored) {
         }
@@ -597,6 +587,11 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
     @Override
     public InputStream getErrorStream() {
         // ignore for cassette
+        cacheAndRecordIfNeeded();
+        try {
+            this.responseErrorStream.reset();
+        } catch (IOException ignored) {
+        }
         return this.responseErrorStream;
     }
 
@@ -1165,6 +1160,8 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
     @Override
     public InputStream getInputStream() throws IOException {
         // ignore for cassette
+        cacheAndRecordIfNeeded();
+        this.responseInputStream.reset();
         return this.responseInputStream;
     }
 

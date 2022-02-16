@@ -5,8 +5,14 @@ import com.easypost.scotch.clients.httpurlconnection.VCRURL;
 import org.junit.Test;
 
 import javax.net.ssl.HttpsURLConnection;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.nio.charset.StandardCharsets;
+import java.util.Scanner;
+import java.util.stream.Collectors;
 
 public class TestHttpUrlConnection {
 
@@ -42,24 +48,20 @@ public class TestHttpUrlConnection {
         VCR vcr = TestTools.getRecordingVCR(cassettePath);
         VCRURL url = new VCRURL("https://m.facebook.com", vcr);
 
-        VCRHttpURLConnection conn = url.openConnection();
-        conn.setRequestMethod("DELETE");
-        conn.setRequestProperty("This", "That");
-        conn.setRequestProperty("this2", "that2");
-        HttpURLConnection connCast = (HttpURLConnection) conn;
-
-        System.out.println(connCast.getContent());
-        System.out.println(connCast.getInputStream());
-
         VCRHttpsURLConnection sConn = url.openConnectionSecure();
         sConn.setRequestMethod("DELETE");
         sConn.setRequestProperty("This", "That");
         sConn.setRequestProperty("this2", "that2");
         HttpsURLConnection sConnCast = (HttpsURLConnection) sConn;
 
-        System.out.println(sConnCast.getURL());
-        System.out.println(sConnCast.getContent());
-        System.out.println(sConnCast.getInputStream());
+        InputStream stream = sConnCast.getInputStream();
+        String text = new BufferedReader(
+                new InputStreamReader(stream, StandardCharsets.UTF_8))
+                .lines()
+                .collect(Collectors.joining("\n"));
+
+        // stream.close();
+        System.out.println(text);
 
     }
 }

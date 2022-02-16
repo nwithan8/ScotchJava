@@ -7,6 +7,8 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -35,10 +37,21 @@ public class Helpers {
         return map;
     }
 
+    public static InputStream copyInputStream(InputStream stream) {
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            stream.transferTo(baos);
+            return new ByteArrayInputStream(baos.toByteArray());
+        } catch (IOException ignored) {
+            return new ByteArrayInputStream(new byte[] {});
+        }
+    }
+
     public static String readBodyFromInputStream(InputStream stream) {
+        InputStream copy = copyInputStream(stream);
         String body = null;
         try {
-            BufferedReader in = new BufferedReader(new InputStreamReader(stream));
+            BufferedReader in = new BufferedReader(new InputStreamReader(copy));
             String inputLine;
             StringBuilder content = new StringBuilder();
             while ((inputLine = in.readLine()) != null) {
