@@ -39,6 +39,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
     // interaction is not actually recorded until you getX() from the result
     private Request cachedRequest;
     private Response cachedResponse;
+    private boolean recorded = false;
 
     private final HttpsURLConnection connection;
     private final VCR vcr;
@@ -82,6 +83,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
     }
 
     private Request createRequest() {
+        // need to remake each time, since could change
         try {
             String tempUrlWithParams = this.connection.getURL().toURI().toString();
             if (queryString != null) {
@@ -122,21 +124,24 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
         // only need to execute this once, on the first getX(), since no more setX() is allowed at that point
         // so the request and response won't be changing
         // important to call directly on connection, rather than this.function() to avoid potential recursion
+        if (recorded) {
+            return;
+        }
         if (this.cachedRequest == null) {
             this.cachedRequest = createRequest();
         }
-        if (this.cachedResponse == null) {
-            this.cachedResponse = createResponse();
-        }
+        this.cachedResponse = createResponse();
 
         this.cachedInteraction = new HttpInteraction(this.cachedRequest, this.cachedResponse);
         this.vcr.tapeOverExistingInteraction(this.cachedInteraction);
+        recorded = true;
     }
 
     private boolean loadMatchingInteraction() {
         if (this.cachedRequest == null) {
             this.cachedRequest = createRequest();
         }
+        // null because couldn't be created
         if (this.cachedRequest == null) {
             return false;
         }
@@ -148,6 +153,7 @@ public class VCRHttpsURLConnection extends HttpsURLConnection {
         this.cachedRequest = null;
         this.cachedResponse = null;
         this.cachedInteraction = null;
+        recorded = false;
     }
 
     public void addQueryParameters(Map<String, String> parameters) throws IOException {
