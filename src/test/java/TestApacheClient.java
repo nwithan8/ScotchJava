@@ -1,5 +1,8 @@
-import com.easypost.scotch.VCR;
-import com.easypost.scotch.clients.apachehttpclient.VCRCloseableHttpClient;
+import com.easypost.easyvcr.AdvancedSettings;
+import com.easypost.easyvcr.Cassette;
+import com.easypost.easyvcr.Mode;
+import com.easypost.easyvcr.clients.apachehttpclient.RecordableCloseableHttpClient;
+import com.easypost.easyvcr.clients.apachehttpclient.VCRCloseableHttpClient;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
@@ -12,9 +15,9 @@ public class TestApacheClient {
 
     private static final String cassettePath = "/Users/nharris/code/scotch_java/cassettes/apache_http_client.json";
 
-    private void testApacheHttpClientRequest(VCR vcr) {
+    private void testApacheHttpClientRequest(Mode mode) {
         try {
-            VCRCloseableHttpClient client = new VCRCloseableHttpClient(vcr);
+            RecordableCloseableHttpClient client = new RecordableCloseableHttpClient(new Cassette("test", "name"), mode);
             HttpPost post = new HttpPost("https://google.com");
             StringEntity requestEntity = new StringEntity("fun", ContentType.APPLICATION_JSON);
             post.setEntity(requestEntity);
@@ -23,17 +26,5 @@ public class TestApacheClient {
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    @Test
-    public void testApacheHttpClientRecord() {
-        VCR vcr = TestTools.getRecordingVCR(cassettePath);
-        testApacheHttpClientRequest(vcr);
-    }
-
-    @Test
-    public void testApacheHttpClientReplay() {
-        VCR vcr = TestTools.getReplayingVCR(cassettePath);
-        testApacheHttpClientRequest(vcr);
     }
 }

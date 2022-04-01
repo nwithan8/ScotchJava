@@ -1,7 +1,6 @@
-import com.easypost.scotch.VCR;
-import com.easypost.scotch.clients.httpurlconnection.VCRHttpURLConnection;
-import com.easypost.scotch.clients.httpurlconnection.VCRHttpsURLConnection;
-import com.easypost.scotch.clients.httpurlconnection.VCRURL;
+import com.easypost.easyvcr.clients.httpurlconnection.VCRHttpURLConnection;
+import com.easypost.easyvcr.clients.httpurlconnection.VCRHttpsURLConnection;
+import com.easypost.easyvcr.clients.httpurlconnection.VCRURL;
 import org.junit.Test;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -9,17 +8,15 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
 import java.nio.charset.StandardCharsets;
-import java.util.Scanner;
 import java.util.stream.Collectors;
 
 public class TestHttpUrlConnection {
 
     private static final String cassettePath = "/Users/nharris/code/scotch_java/cassettes/http_url_connection.json";
 
-    private void testHttpUrlConnectionRequest(VCR vcr) throws IOException {
-        VCRURL url = new VCRURL("https://m.facebook.com", vcr);
+    private void testHttpUrlConnectionRequest(OldVCR oldVcr) throws IOException {
+        VCRURL url = new VCRURL("https://m.facebook.com", oldVcr);
 
         VCRHttpURLConnection conn = url.openConnection();
 
@@ -32,21 +29,21 @@ public class TestHttpUrlConnection {
 
     @Test
     public void testHttpUrlConnectionRecord() throws IOException {
-        VCR vcr = TestTools.getRecordingVCR(cassettePath);
-        testHttpUrlConnectionRequest(vcr);
+        OldVCR oldVcr = TestTools.getRecordingVCR(cassettePath);
+        testHttpUrlConnectionRequest(oldVcr);
     }
 
     @Test
     // can run offline
     public void testHttpUrlConnectionReplay() throws IOException {
-        VCR vcr = TestTools.getReplayingVCR(cassettePath);
-        testHttpUrlConnectionRequest(vcr);
+        OldVCR oldVcr = TestTools.getReplayingVCR(cassettePath);
+        testHttpUrlConnectionRequest(oldVcr);
     }
 
     @Test
     public void testCast() throws IOException {
-        VCR vcr = TestTools.getReplayingVCR(cassettePath);
-        VCRURL url = new VCRURL("https://m.facebook.com", vcr);
+        OldVCR oldVcr = TestTools.getReplayingVCR(cassettePath);
+        VCRURL url = new VCRURL("https://m.facebook.com", oldVcr);
 
         VCRHttpsURLConnection sConn = url.openConnectionSecure();
         sConn.setRequestMethod("DELETE");

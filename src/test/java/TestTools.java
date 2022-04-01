@@ -1,9 +1,9 @@
-import com.easypost.scotch.VCR;
-import com.easypost.scotch.cassettes.Cassette;
+import com.easypost.easyvcr.Cassette;
+import com.easypost.easyvcr.VCR;
 
 public class TestTools {
     public static VCR getVCR(String path) {
-        Cassette cassette = new Cassette(path);
+        Cassette cassette = new Cassette("/path/to/cassettes", "");
         VCR vcr = new VCR();
         vcr.insert(cassette);
         return vcr;
