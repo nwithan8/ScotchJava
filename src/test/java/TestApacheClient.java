@@ -1,8 +1,6 @@
-import com.easypost.easyvcr.AdvancedSettings;
 import com.easypost.easyvcr.Cassette;
 import com.easypost.easyvcr.Mode;
 import com.easypost.easyvcr.clients.apachehttpclient.RecordableCloseableHttpClient;
-import com.easypost.easyvcr.clients.apachehttpclient.VCRCloseableHttpClient;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
@@ -26,5 +24,10 @@ public class TestApacheClient {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    @Test
+    public void testApacheHttpClientRequest() {
+        testApacheHttpClientRequest(Mode.Record);
     }
 }

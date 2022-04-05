@@ -29,7 +29,7 @@ public class Cassette {
     }
 
     public Cassette(String folderPath, String cassetteName) {
-        this(folderPath, cassetteName, null);
+        this(folderPath, cassetteName, new CassetteOrder.None());
     }
 
     public int count() {
