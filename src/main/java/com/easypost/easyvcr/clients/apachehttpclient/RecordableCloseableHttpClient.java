@@ -4,7 +4,6 @@ import com.easypost.easyvcr.AdvancedSettings;
 import com.easypost.easyvcr.Cassette;
 import com.easypost.easyvcr.Mode;
 import com.easypost.easyvcr.VCRException;
-import com.easypost.easyvcr.clients.httpclient.RecordableHttpRequest;
 import com.easypost.easyvcr.interactionconverters.ApacheInteractionConverter;
 import com.easypost.easyvcr.requestelements.HttpInteraction;
 import com.easypost.easyvcr.requestelements.Request;
@@ -12,17 +11,15 @@ import org.apache.http.HttpHost;
 import org.apache.http.HttpRequest;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.client.utils.URIUtils;
 import org.apache.http.conn.ClientConnectionManager;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.params.HttpParams;
 import org.apache.http.protocol.HttpContext;
-import org.apache.http.util.Args;
 
 import java.io.IOException;
-import java.net.URI;
+
+import static com.easypost.easyvcr.internalutilities.Tools.simulateDelay;
 
 public class RecordableCloseableHttpClient extends CloseableHttpClient {
 
@@ -59,36 +56,52 @@ public class RecordableCloseableHttpClient extends CloseableHttpClient {
         return httpResponse;
     }
 
-    private CloseableHttpResponse populateWithCachedResponse(HttpHost target, HttpRequest httpRequest,
-                                                             HttpContext context) throws VCRException {
+    private HttpInteraction loadExistingInteraction(HttpHost target, HttpRequest httpRequest,
+                                                    HttpContext context) throws VCRException {
         Request request = converter.createRequest(httpRequest, advancedSettings.censors);
 
-        HttpInteraction matchingInteraction = converter.findMatchingInteraction(this.cassette, request, advancedSettings.matchRules);
+        HttpInteraction matchingInteraction =
+                converter.findMatchingInteraction(this.cassette, request, advancedSettings.matchRules);
 
         if (matchingInteraction == null) {
             return null;
         }
 
-        return matchingInteraction.getResponse().toCloseableHttpResponse();
+        return matchingInteraction;
     }
 
     @Override
     protected CloseableHttpResponse doExecute(HttpHost httpHost, HttpRequest httpRequest, HttpContext httpContext)
             throws IOException, ClientProtocolException {
-        // TODO: Bypass and auto mode
         switch (mode) {
             case Record:
                 try {
                     return sendAndRecordResponse(httpHost, httpRequest, httpContext);
                 } catch (VCRException e) {
-                    e.printStackTrace();
+                    throw new RuntimeException(e);
                 }
             case Replay:
                 try {
-                    return populateWithCachedResponse(httpHost, httpRequest, httpContext);
-                } catch (VCRException e) {
-                    e.printStackTrace();
+                    HttpInteraction recording = loadExistingInteraction(httpHost, httpRequest, httpContext);
+                    simulateDelay(recording, advancedSettings);
+                } catch (VCRException | InterruptedException e) {
+                    throw new RuntimeException(e);
                 }
+            case Auto:
+                try {
+                    HttpInteraction recording = loadExistingInteraction(httpHost, httpRequest, httpContext);
+                    simulateDelay(recording, advancedSettings);
+                } catch (VCRException e) {
+                    try {
+                        return sendAndRecordResponse(httpHost, httpRequest, httpContext);
+                    } catch (VCRException e2) {
+                        throw new RuntimeException(e2);
+                    }
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            case Bypass:
+                return this.client.execute(httpHost, httpRequest, httpContext);
             default:
                 return null;
         }

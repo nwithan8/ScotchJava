@@ -3,6 +3,7 @@ package com.easypost.easyvcr.clients.httpclient;
 import com.easypost.easyvcr.AdvancedSettings;
 import com.easypost.easyvcr.Cassette;
 import com.easypost.easyvcr.Mode;
+import com.easypost.easyvcr.interactionconverters.HttpClientInteractionConverter;
 import com.easypost.easyvcr.internalutilities.Utils;
 
 import java.net.URI;
@@ -22,6 +23,8 @@ public final class RecordableImmutableHttpRequest extends RecordableHttpRequest 
     private final Optional<Duration> timeout;
     private final Optional<Version> version;
 
+    private final HttpClientInteractionConverter converter;
+
     private final Cassette cassette;
     private final Mode mode;
     private final AdvancedSettings advancedSettings;
@@ -29,7 +32,7 @@ public final class RecordableImmutableHttpRequest extends RecordableHttpRequest 
     /**
      * Creates an ImmutableHttpRequest from the given builder.
      */
-    RecordableImmutableHttpRequest(RecordableHttpRequestBuilderImpl builder, Cassette cassette, Mode mode, AdvancedSettings advancedSettings) {
+    RecordableImmutableHttpRequest(RecordableHttpRequestBuilderImpl builder, Cassette cassette, Mode mode, AdvancedSettings advancedSettings, HttpClientInteractionConverter converter) {
         this.method = Objects.requireNonNull(builder.method());
         this.uri = Objects.requireNonNull(builder.uri());
         this.headers = HttpHeaders.of(builder.headersBuilder().map(), Utils.ALLOWED_HEADERS);
@@ -41,10 +44,11 @@ public final class RecordableImmutableHttpRequest extends RecordableHttpRequest 
         this.cassette = cassette;
         this.mode = mode;
         this.advancedSettings = advancedSettings;
+        this.converter = converter;
     }
 
     public RecordableBodyHandler getBodyHandler() {
-        return new RecordableBodyHandler(cassette, mode, advancedSettings);
+        return new RecordableBodyHandler(cassette, mode, advancedSettings, converter);
     }
 
     @Override

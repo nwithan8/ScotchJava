@@ -51,8 +51,8 @@ public class MatchRules {
             }
 
             // convert body to base64string to assist comparison by removing special characters
-            var receivedBody = Tools.ToBase64String(received.getBody());
-            var recordedBody = Tools.ToBase64String(recorded.getBody());
+            var receivedBody = Tools.toBase64String(received.getBody());
+            var recordedBody = Tools.toBase64String(recorded.getBody());
             return receivedBody.equalsIgnoreCase(recordedBody);
         });
         return this;
@@ -74,15 +74,15 @@ public class MatchRules {
     public MatchRules byFullUrl(boolean exact) {
         if (exact) {
             by((received, recorded) -> {
-                var receivedUri = Tools.ToBase64String(received.getUriString());
-                var recordedUri = Tools.ToBase64String(recorded.getUriString());
+                var receivedUri = Tools.toBase64String(received.getUriString());
+                var recordedUri = Tools.toBase64String(recorded.getUriString());
                 return receivedUri.equalsIgnoreCase(recordedUri);
             });
         } else {
             byBaseUrl();
             by((received, recorded) -> {
-                Map<String, String> receivedQuery = Tools.QueryParametersToMap(received.getUri());
-                Map<String, String> recordedQuery = Tools.QueryParametersToMap(recorded.getUri());
+                Map<String, String> receivedQuery = Tools.queryParametersToMap(received.getUri());
+                Map<String, String> recordedQuery = Tools.queryParametersToMap(recorded.getUri());
                 if (receivedQuery.size() != recordedQuery.size()) {
                     return false;
                 }

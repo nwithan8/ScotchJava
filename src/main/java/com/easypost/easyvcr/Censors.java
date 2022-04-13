@@ -10,7 +10,6 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Dictionary;
 import java.util.List;
 import java.util.Map;
 
@@ -32,7 +31,7 @@ public class Censors {
     }
 
     public static Censors Default() {
-        return null;
+        return new Censors();
     }
 
     public static Censors DefaultStrict() {
@@ -110,7 +109,7 @@ public class Censors {
             return url;
         }
         URI uri = URI.create(url);
-        Map<String, String> queryParameters = Tools.QueryParametersToMap(uri);
+        Map<String, String> queryParameters = Tools.queryParametersToMap(uri);
         if (queryParameters.size() == 0) {
             // short circuit if there are no query parameters to censor
             return url;
@@ -122,7 +121,7 @@ public class Censors {
             }
         }
 
-        List<NameValuePair> censoredQueryParametersList = Tools.MapToQueryParameters(queryParameters);
+        List<NameValuePair> censoredQueryParametersList = Tools.mapToQueryParameters(queryParameters);
         String formattedQueryParameters = URLEncodedUtils.format(censoredQueryParametersList, StandardCharsets.UTF_8);
         if (formattedQueryParameters.length() == 0) {
             // short circuit if there are no query parameters to censor

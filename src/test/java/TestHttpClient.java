@@ -1,5 +1,5 @@
+import com.easypost.easyvcr.Cassette;
 import com.easypost.easyvcr.Mode;
-import com.easypost.easyvcr.clients.httpclient.RecordableBodyHandler;
 import com.easypost.easyvcr.clients.httpclient.RecordableHttpRequest;
 import org.junit.Test;
 
@@ -11,14 +11,18 @@ import java.net.http.HttpResponse;
 
 public class TestHttpClient {
 
-    private static final String cassettePath = "/Users/nharris/code/scotch_java/cassettes/http_request.json";
+    private static final String cassettePath = "/Users/nharris/code/scotch_java/cassettes/";
 
-    private void testRequest(Mode mode) throws IOException, InterruptedException, URISyntaxException {
+    @Test
+    public void testRequest() throws IOException, InterruptedException, URISyntaxException {
         // standard HttpClient
         HttpClient client = HttpClient.newHttpClient();
 
+        Cassette cassette = new Cassette(cassettePath, "test_cassette");
+        Mode mode = Mode.Replay;
+
         // custom RecordableHttpRequest
-        RecordableHttpRequest request = RecordableHttpRequest.newBuilder(new URI("https://google.com"), null, mode, null)
+        RecordableHttpRequest request = RecordableHttpRequest.newBuilder(new URI("https://google.com"), cassette, mode, null)
                 .POST(RecordableHttpRequest.BodyPublishers.ofString(
                         "{ \"name\":\"tammy133\", \"salary\":\"5000\", \"age\":\"20\" }")).build();
 

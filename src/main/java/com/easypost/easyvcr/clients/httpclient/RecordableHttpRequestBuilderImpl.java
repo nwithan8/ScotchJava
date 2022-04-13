@@ -25,7 +25,7 @@ public class RecordableHttpRequestBuilderImpl implements RecordableHttpRequest.B
     private final Cassette cassette;
     private final Mode mode;
     private final AdvancedSettings advancedSettings;
-    private final HttpClientInteractionConverter httpClientInteractionConverter;
+    private final HttpClientInteractionConverter converter;
 
     private RecordableHttpHeadersBuilder headersBuilder;
     private URI uri;
@@ -35,7 +35,7 @@ public class RecordableHttpRequestBuilderImpl implements RecordableHttpRequest.B
     private volatile Optional<HttpClient.Version> version;
     private Duration duration;
 
-    public RecordableHttpRequestBuilderImpl(URI uri, Cassette cassette, Mode mode, AdvancedSettings advancedSettings) {
+    public RecordableHttpRequestBuilderImpl(URI uri, Cassette cassette, Mode mode, AdvancedSettings advancedSettings, HttpClientInteractionConverter converter) {
         requireNonNull(uri, "uri must be non-null");
         checkURI(uri);
         this.uri = uri;
@@ -46,7 +46,7 @@ public class RecordableHttpRequestBuilderImpl implements RecordableHttpRequest.B
         this.cassette = cassette;
         this.mode = mode;
         this.advancedSettings = advancedSettings;
-        this.httpClientInteractionConverter = new HttpClientInteractionConverter();
+        this.converter = converter;
     }
 
     @Override
@@ -59,8 +59,9 @@ public class RecordableHttpRequestBuilderImpl implements RecordableHttpRequest.B
 
     static void checkURI(URI uri) {
         String scheme = uri.getScheme();
-        if (scheme == null)
+        if (scheme == null) {
             throw Utils.newIAE("URI with undefined scheme");
+        }
         scheme = scheme.toLowerCase(Locale.US);
         if (!(scheme.equals("https") || scheme.equals("http"))) {
             throw Utils.newIAE("invalid URI scheme %s", scheme);
@@ -72,7 +73,8 @@ public class RecordableHttpRequestBuilderImpl implements RecordableHttpRequest.B
 
     @Override
     public RecordableHttpRequestBuilderImpl copy() {
-        RecordableHttpRequestBuilderImpl b = new RecordableHttpRequestBuilderImpl(this.uri, this.cassette, this.mode, this.advancedSettings);
+        RecordableHttpRequestBuilderImpl b =
+                new RecordableHttpRequestBuilderImpl(this.uri, this.cassette, this.mode, this.advancedSettings, this.converter);
         b.headersBuilder = this.headersBuilder.structuralCopy();
         b.method = this.method;
         b.expectContinue = this.expectContinue;
@@ -122,7 +124,7 @@ public class RecordableHttpRequestBuilderImpl implements RecordableHttpRequest.B
             throw Utils.newIAE("wrong number, %d, of parameters", params.length);
         }
         for (int i = 0; i < params.length; i += 2) {
-            String name  = params[i];
+            String name = params[i];
             String value = params[i + 1];
             header(name, value);
         }
@@ -142,24 +144,24 @@ public class RecordableHttpRequestBuilderImpl implements RecordableHttpRequest.B
         return this;
     }
 
-    RecordableHttpHeadersBuilder headersBuilder() {  return headersBuilder; }
+    RecordableHttpHeadersBuilder headersBuilder() {return headersBuilder;}
 
-    URI uri() { return uri; }
+    URI uri() {return uri;}
 
-    String method() { return method; }
+    String method() {return method;}
 
-    boolean expectContinue() { return expectContinue; }
+    boolean expectContinue() {return expectContinue;}
 
-    HttpRequest.BodyPublisher bodyPublisher() { return bodyPublisher; }
+    HttpRequest.BodyPublisher bodyPublisher() {return bodyPublisher;}
 
-    Optional<HttpClient.Version> version() { return version; }
+    Optional<HttpClient.Version> version() {return version;}
 
     public RecordableHttpRequest.Builder GET() {
         return method0("GET", null);
     }
 
     public RecordableHttpRequest.Builder POST(RecordableHttpRequest.BodyPublisher body) {
-        httpClientInteractionConverter.noteRequestBody(body.contents);
+        converter.noteRequestBody(body, advancedSettings.censors);
         return method0("POST", body);
     }
 
@@ -181,10 +183,18 @@ public class RecordableHttpRequestBuilderImpl implements RecordableHttpRequest.B
 
     @Override
     public RecordableHttpRequest build() {
-        if (uri == null)
+        if (uri == null) {
             throw new IllegalStateException("uri is null");
+        }
         assert method != null;
-        return new RecordableImmutableHttpRequest(this, cassette, mode, advancedSettings);
+        RecordableImmutableHttpRequest request =
+                new RecordableImmutableHttpRequest(this, cassette, mode, advancedSettings, converter);
+        try {
+            converter.noteRequestDetails(request, advancedSettings.censors);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to cache request", e);
+        }
+        return request;
     }
 
     public Object buildForWebSocket() {
@@ -195,12 +205,13 @@ public class RecordableHttpRequestBuilderImpl implements RecordableHttpRequest.B
     @Override
     public RecordableHttpRequest.Builder timeout(Duration duration) {
         requireNonNull(duration);
-        if (duration.isNegative() || Duration.ZERO.equals(duration))
+        if (duration.isNegative() || Duration.ZERO.equals(duration)) {
             throw new IllegalArgumentException("Invalid duration: " + duration);
+        }
         this.duration = duration;
         return this;
     }
 
-    Duration timeout() { return duration; }
+    Duration timeout() {return duration;}
 
 }

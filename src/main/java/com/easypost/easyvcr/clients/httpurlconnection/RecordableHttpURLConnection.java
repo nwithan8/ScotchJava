@@ -1,68 +1,134 @@
 package com.easypost.easyvcr.clients.httpurlconnection;
 
+import com.easypost.easyvcr.AdvancedSettings;
+import com.easypost.easyvcr.Cassette;
+import com.easypost.easyvcr.Mode;
+import com.easypost.easyvcr.VCRException;
+import com.easypost.easyvcr.interactionconverters.HttpUrlConnectionInteractionConverter;
 import com.easypost.easyvcr.requestelements.HttpInteraction;
 import com.easypost.easyvcr.requestelements.Request;
-import com.easypost.easyvcr.requestelements.Response;
 
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLPeerUnverifiedException;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocketFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Authenticator;
 import java.net.HttpRetryException;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.Proxy;
 import java.net.SocketPermission;
-import java.net.URISyntaxException;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.net.UnknownServiceException;
-import java.nio.charset.StandardCharsets;
 import java.security.Permission;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.security.Principal;
+import java.security.cert.Certificate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
 
-public class VCRHttpURLConnection extends HttpURLConnection {
+import static com.easypost.easyvcr.internalutilities.Tools.simulateDelay;
+
+public class RecordableHttpURLConnection extends HttpURLConnection {
 
     // interaction is not actually recorded until you getX() from the result
+    // connect() or any getX() function will cache the interaction
+    // you cannot setX() after the interaction has been cached
+
+    // TODO: ^ Eventually allow users to set after cache (update cache)
 
     private final HttpURLConnection connection;
-    private final OldVCR oldVcr;
+    private final HttpUrlConnectionInteractionConverter converter;
+    private final Cassette cassette;
+    private final Mode mode;
+    private final AdvancedSettings advancedSettings;
     private HttpInteraction cachedInteraction;
 
-    // Cached request attributes
-    private URL requestURL;
-    private String requestRequestMethod;
-    private Map<String, List<String>> requestRequestProperties = new HashMap<>();
-
-    // Cached response attributes
-    private boolean responseCached = false;
-    private InputStream responseInputStream;
-    private InputStream responseErrorStream;
-    private int responseResponseCode;
-    private String responseResponseMessage;
-    private Map<String, List<String>> responseHeaderFields;
-
-
-
-    public VCRHttpURLConnection(URL url, OldVCR oldVcr) throws IOException {
+    public RecordableHttpURLConnection(URL url, Proxy proxy, Cassette cassette, Mode mode,
+                                       AdvancedSettings advancedSettings) throws IOException {
         // this super is not used
         super(url);
-        this.connection = (HttpURLConnection) url.openConnection();
-        this.oldVcr = oldVcr;
-        this.cachedInteraction = new HttpInteraction(new Request(), new Response());
+        if (proxy == null) {
+            this.connection = (HttpsURLConnection) url.openConnection();
+        } else {
+            this.connection = (HttpsURLConnection) url.openConnection(proxy);
+        }
+        this.cachedInteraction = null;
+        this.cassette = cassette;
+        this.mode = mode;
+        this.advancedSettings = advancedSettings;
+        this.converter = new HttpUrlConnectionInteractionConverter();
     }
 
-    public VCRHttpURLConnection(URL url, OldVCR oldVcr, Proxy proxy) throws IOException {
-        // this super is not used
-        super(url);
-        this.connection = (HttpURLConnection) url.openConnection(proxy);
-        this.oldVcr = oldVcr;
-        this.cachedInteraction = new HttpInteraction(new Request(), new Response());
+    public RecordableHttpURLConnection(URL url, Cassette cassette, Mode mode, AdvancedSettings advancedSettings)
+            throws IOException {
+        this(url, null, cassette, mode, advancedSettings);
     }
 
+    public RecordableHttpURLConnection(URL url, Proxy proxy, Cassette cassette, Mode mode) throws IOException {
+        this(url, proxy, cassette, mode, new AdvancedSettings());
+    }
+
+    public RecordableHttpURLConnection(URL url, Cassette cassette, Mode mode) throws IOException {
+        this(url, cassette, mode, new AdvancedSettings());
+    }
+
+    private Object getObjectElementFromCache(Function<HttpInteraction, Object> getter, Object defaultValue)
+            throws VCRException {
+        if (this.cachedInteraction == null) {
+            return defaultValue;
+        }
+        try {
+            return getter.apply(this.cachedInteraction);
+        } catch (Exception e) {
+            throw new VCRException("Error getting string element from cache");
+        }
+    }
+
+    private String getStringElementFromCache(Function<HttpInteraction, String> getter, String defaultValue)
+            throws VCRException {
+        if (this.cachedInteraction == null) {
+            return defaultValue;
+        }
+        try {
+            return getter.apply(this.cachedInteraction);
+        } catch (Exception e) {
+            throw new VCRException("Error getting string element from cache");
+        }
+    }
+
+    private boolean getBooleanElementFromCache(Function<HttpInteraction, Boolean> getter, boolean defaultValue)
+            throws VCRException {
+        if (this.cachedInteraction == null) {
+            return defaultValue;
+        }
+        try {
+            return getter.apply(this.cachedInteraction);
+        } catch (Exception e) {
+            throw new VCRException("Error getting boolean element from cache");
+        }
+    }
+
+    private int getIntegerElementFromCache(Function<HttpInteraction, Integer> getter, int defaultValue)
+            throws VCRException {
+        if (this.cachedInteraction == null) {
+            return defaultValue;
+        }
+        try {
+            return getter.apply(this.cachedInteraction);
+        } catch (Exception e) {
+            throw new VCRException("Error getting integer element from cache");
+        }
+    }
+
+    /*
     private static String getParamsString(Map<String, String> params) {
         StringBuilder result = new StringBuilder();
 
@@ -75,131 +141,85 @@ public class VCRHttpURLConnection extends HttpURLConnection {
 
         String resultString = result.toString();
         return resultString.length() > 0 ? resultString.substring(0, resultString.length() - 1) : resultString;
-    }
+    }*/
 
-    private Request createVCRRequest() {
-        // need to remake each time, since could change
-        try {
-            Request request = new Request();
-            request.setUri(this.requestURL.toURI());
-            // request.setBody(body);
-            request.setMethod(this.requestRequestMethod);
-            request.setHeaders(this.requestRequestProperties);
-            return request;
-        } catch (URISyntaxException ignored) {
-        }
-
-        return null;
-    }
-
-    private Response createVCRResponse() {
-        try {
-            Response response = new Response();
-            response.setStatusCode(this.responseResponseCode);
-            response.setMessage(this.responseResponseMessage);
-            response.setUri(this.requestURL.toURI());
-            response.setBody(Helpers.readBodyFromInputStream(this.responseInputStream));
-            response.setErrors(Helpers.readBodyFromInputStream(this.responseErrorStream));
-            response.setHeaders(this.responseHeaderFields);
-            return response;
-        } catch (URISyntaxException ignored) {
-        }
-
-        return null;
-    }
-
-    private void recordInteraction() {
+    private void cacheInteraction(boolean recordToCassette) throws VCRException {
         // record this interaction
         // only need to execute this once, on the first getX(), since no more setX() is allowed at that point
         // so the request and response won't be changing
         // important to call directly on connection, rather than this.function() to avoid potential recursion
-        Request request = createVCRRequest();
-        Response response = createVCRResponse();
-
-        this.cachedInteraction = new HttpInteraction(request, response);
-        this.oldVcr.tapeOverExistingInteraction(this.cachedInteraction);
+        this.cachedInteraction = this.converter.createInteraction(this.connection, this.advancedSettings.censors);
+        if (recordToCassette) {
+            this.cassette.updateInteraction(this.cachedInteraction, this.advancedSettings.matchRules, false);
+        }
     }
 
-    private boolean loadMatchingInteraction() {
-        Request request = createVCRRequest();
+    private boolean loadExistingInteraction() throws VCRException, InterruptedException {
+        Request request = converter.createRecordedRequest(this.connection, this.advancedSettings.censors);
         // null because couldn't be created
         if (request == null) {
             return false;
         }
-        this.cachedInteraction = this.oldVcr.seekMatchingInteraction(request);
-        return this.cachedInteraction != null;
-    }
-
-    private void cacheHttpRequest() {
-        try {
-            this.requestRequestMethod = this.connection.getRequestMethod();
-            this.requestURL = this.connection.getURL();
-            this.requestRequestProperties = this.connection.getRequestProperties();
-        } catch (Exception ignored) {
+        HttpInteraction matchingInteraction =
+                converter.findMatchingInteraction(this.cassette, request, advancedSettings.matchRules);
+        if (matchingInteraction == null) {
+            return false;
         }
+        simulateDelay(matchingInteraction, this.advancedSettings);
+        this.cachedInteraction = matchingInteraction;
+        return true;
     }
 
-    private void cacheHttpResponse() {
-        // can only cache this once
-        if (this.responseCached) {
+    private void buildCache() throws VCRException {
+        // run every time a user attempts to getX()
+
+        // can't setX() after the first getX(), so if cache has already been built, can't build again
+        if (this.cachedInteraction != null) {
             return;
         }
-        try {
-            this.responseResponseCode = this.connection.getResponseCode();
-            this.responseResponseMessage = this.connection.getResponseMessage();
-            this.responseHeaderFields = this.connection.getHeaderFields();
-            try {
-                InputStream stream = this.connection.getInputStream();
-                this.responseInputStream = Helpers.copyInputStream(stream);
-            } catch (NullPointerException | IOException ignored) {
-            }
-            try {
-                InputStream stream = this.connection.getErrorStream();
-                this.responseErrorStream = Helpers.copyInputStream(stream);
-            } catch (NullPointerException ignored) {
-            }
-            this.responseCached = true;
-        } catch (IOException ignored) {
-        }
-    }
 
-    private void cacheAndRecordIfNeeded() {
-        cacheHttpRequest();
-        if (this.oldVcr.inRecordMode()) {
-            cacheHttpResponse();
-            recordInteraction();
+        switch (mode) {
+            case Record:
+                cacheInteraction(true);
+                break;
+            case Replay:
+                try {
+                    loadExistingInteraction();
+                } catch (VCRException | InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                break;
+            case Auto:
+                try {
+                    if (!loadExistingInteraction()) {
+                        cacheInteraction(true);
+                    }
+                } catch (VCRException | InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                break;
+            case Bypass:
+                cacheInteraction(false);
+                break;
         }
     }
 
     private void clearCache() {
         this.cachedInteraction = null;
-        this.requestURL = null;
-        this.requestRequestProperties = null;
-        this.requestRequestMethod = null;
-        this.responseResponseCode = -1;
-        this.responseResponseMessage = null;
-        this.responseHeaderFields = null;
-        this.responseInputStream = null;
-        this.responseCached = false;
     }
 
     @Override
     public void connect() throws IOException {
-        // might as well load the cassette if we're replaying, or save if we're recording
         this.connection.connect();
-        if (this.oldVcr.inRecordMode()) {
-            recordInteraction();
-        } else if (this.oldVcr.inPlaybackMode()) {
-            loadMatchingInteraction();
+        try {
+            buildCache(); // can't set anything after connecting, so might as well build the cache now
+        } catch (VCRException e) {
+            throw new RuntimeException(e);
         }
     }
 
     @Override
     public void disconnect() {
-        // might as well record if we're disconnecting
-        if (this.oldVcr.inRecordMode()) {
-            recordInteraction();
-        }
         this.connection.disconnect();
         clearCache();
     }
@@ -212,22 +232,22 @@ public class VCRHttpURLConnection extends HttpURLConnection {
     /**
      * Supplies an {@link java.net.Authenticator Authenticator} to be used
      * when authentication is requested through the HTTP protocol for
-     * this {@code VCRHttpUrlConnection}.
+     * this {@code RecordableHttpUrlConnection}.
      * If no authenticator is supplied, the
      * {@linkplain Authenticator#setDefault(java.net.Authenticator) default
      * authenticator} will be used.
      *
      * @param auth The {@code Authenticator} that should be used by this
-     *             {@code VCRHttpUrlConnection}.
+     *             {@code RecordableHttpUrlConnection}.
      * @throws UnsupportedOperationException if setting an Authenticator is
      *                                       not supported by the underlying implementation.
      * @throws IllegalStateException         if URLConnection is already connected.
      * @throws NullPointerException          if the supplied {@code auth} is {@code null}.
      * @implSpec The default behavior of this method is to unconditionally
      * throw {@link UnsupportedOperationException}. Concrete
-     * implementations of {@code VCRHttpUrlConnection}
+     * implementations of {@code RecordableHttpUrlConnection}
      * which support supplying an {@code Authenticator} for a
-     * specific {@code VCRHttpUrlConnection} instance should
+     * specific {@code RecordableHttpUrlConnection} instance should
      * override this method to implement a different behavior.
      * @implNote Depending on authentication schemes, an implementation
      * may or may not need to use the provided authenticator
@@ -242,15 +262,17 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      * <br>
      * However, if an authenticator is specifically provided,
      * then the underlying connection may only be reused for
-     * {@code VCRHttpUrlConnection} instances which share the same
+     * {@code RecordableHttpUrlConnection} instances which share the same
      * {@code Authenticator} instance, and authentication information,
-     * if cached, may only be reused for an {@code VCRHttpUrlConnection}
+     * if cached, may only be reused for an {@code RecordableHttpUrlConnection}
      * sharing that same {@code Authenticator}.
      * @since 9
      */
     @Override
     public void setAuthenticator(Authenticator auth) {
-        // ignore for cassette
+        if (cachedInteraction != null) {
+            throw new IllegalStateException("Cannot set anything after interaction has been cached");
+        }
         this.connection.setAuthenticator(auth);
     }
 
@@ -267,18 +289,13 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public String getHeaderFieldKey(int n) {
-        cacheAndRecordIfNeeded();
-        if (this.oldVcr.inPlaybackMode()) {
-            if (loadMatchingInteraction()) {
-                try {
-                    return this.cachedInteraction.getResponse().getHeaders().keySet().toArray()[n].toString();
-                } catch (Exception ignored) {
-                    return null;
-                }
-            }
-            return null;
+        try {
+            buildCache();
+            return getStringElementFromCache(
+                    (interaction) -> interaction.getResponse().getHeaders().keySet().toArray()[n].toString(), null);
+        } catch (VCRException e) {
+            throw new RuntimeException(e);
         }
-        return this.connection.getHeaderFieldKey(n);
     }
 
     /**
@@ -313,7 +330,9 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public void setFixedLengthStreamingMode(int contentLength) {
-        // ignore for cassette
+        if (cachedInteraction != null) {
+            throw new IllegalStateException("Cannot set anything after interaction has been cached");
+        }
         this.connection.setFixedLengthStreamingMode(contentLength);
     }
 
@@ -345,7 +364,9 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public void setFixedLengthStreamingMode(long contentLength) {
-        // ignore for cassette
+        if (cachedInteraction != null) {
+            throw new IllegalStateException("Cannot set anything after interaction has been cached");
+        }
         this.connection.setFixedLengthStreamingMode(contentLength);
     }
 
@@ -374,7 +395,9 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public void setChunkedStreamingMode(int chunklen) {
-        // ignore for cassette
+        if (cachedInteraction != null) {
+            throw new IllegalStateException("Cannot set anything after interaction has been cached");
+        }
         this.connection.setChunkedStreamingMode(chunklen);
     }
 
@@ -395,38 +418,33 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public String getHeaderField(int n) {
-        cacheAndRecordIfNeeded();
-        if (this.oldVcr.inPlaybackMode()) {
-            if (loadMatchingInteraction()) {
-                try {
-                    return this.cachedInteraction.getResponse().getHeaders().values().toArray()[n].toString();
-                } catch (Exception ignored) {
-                    return null;
-                }
-            }
-            return null;
+        try {
+            buildCache();
+            return getStringElementFromCache(
+                    (interaction) -> interaction.getResponse().getHeaders().values().toArray()[n].toString(), null);
+        } catch (VCRException e) {
+            throw new RuntimeException(e);
         }
-        return this.connection.getHeaderField(n);
     }
 
     /**
-     * Returns the value of this {@code VCRHttpUrlConnection}'s
+     * Returns the value of this {@code RecordableHttpUrlConnection}'s
      * {@code instanceFollowRedirects} field.
      *
-     * @return the value of this {@code VCRHttpUrlConnection}'s
+     * @return the value of this {@code RecordableHttpUrlConnection}'s
      * {@code instanceFollowRedirects} field.
      * @see #setInstanceFollowRedirects(boolean)
      * @since 1.3
      */
     @Override
     public boolean getInstanceFollowRedirects() {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getInstanceFollowRedirects();
     }
 
     /**
      * Sets whether HTTP redirects (requests with response code 3xx) should
-     * be automatically followed by this {@code VCRHttpUrlConnection}
+     * be automatically followed by this {@code RecordableHttpUrlConnection}
      * instance.
      * <p>
      * The default value comes from followRedirects, which defaults to
@@ -439,7 +457,9 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public void setInstanceFollowRedirects(boolean followRedirects) {
-        // ignore for cassette
+        if (cachedInteraction != null) {
+            throw new IllegalStateException("Cannot set anything after interaction has been cached");
+        }
         this.connection.setInstanceFollowRedirects(followRedirects);
     }
 
@@ -451,18 +471,12 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public String getRequestMethod() {
-        cacheAndRecordIfNeeded();
-        if (this.oldVcr.inPlaybackMode()) {
-            if (loadMatchingInteraction()) {
-                try {
-                    return this.cachedInteraction.getRequest().getMethod();
-                } catch (Exception ignored) {
-                    return null;
-                }
-            }
-            return null;
+        try {
+            buildCache();
+            return getStringElementFromCache((interaction) -> interaction.getRequest().getMethod(), null);
+        } catch (VCRException e) {
+            throw new RuntimeException(e);
         }
-        return this.requestRequestMethod;
     }
 
     /**
@@ -488,6 +502,9 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public void setRequestMethod(String method) throws ProtocolException {
+        if (cachedInteraction != null) {
+            throw new IllegalStateException("Cannot set anything after interaction has been cached");
+        }
         this.connection.setRequestMethod(method);
     }
 
@@ -507,18 +524,12 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public int getResponseCode() throws IOException {
-        cacheAndRecordIfNeeded();
-        if (this.oldVcr.inPlaybackMode()) {
-            if (loadMatchingInteraction()) {
-                try {
-                    return this.cachedInteraction.getResponse().getStatusCode();
-                } catch (Exception ignored) {
-                    return -1;
-                }
-            }
-            return -1;
+        try {
+            buildCache();
+            return getIntegerElementFromCache((interaction) -> interaction.getResponse().getStatus().getCode(), 0);
+        } catch (VCRException e) {
+            throw new RuntimeException(e);
         }
-        return this.responseResponseCode;
     }
 
     /**
@@ -537,18 +548,12 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public String getResponseMessage() throws IOException {
-        cacheAndRecordIfNeeded();
-        if (this.oldVcr.inPlaybackMode()) {
-            if (loadMatchingInteraction()) {
-                try {
-                    return this.cachedInteraction.getResponse().getMessage();
-                } catch (Exception ignored) {
-                    return null;
-                }
-            }
-            return null;
+        try {
+            buildCache();
+            return getStringElementFromCache((interaction) -> interaction.getResponse().getStatus().getMessage(), null);
+        } catch (VCRException e) {
+            throw new RuntimeException(e);
         }
-        return this.responseResponseMessage;
     }
 
     /**
@@ -563,7 +568,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public Permission getPermission() throws IOException {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getPermission();
     }
 
@@ -587,16 +592,8 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public InputStream getErrorStream() {
-        // ignore for cassette
-        cacheAndRecordIfNeeded();
-        if (this.responseErrorStream == null) {
-            return null;
-        }
-        try {
-            this.responseErrorStream.reset();
-        } catch (IOException ignored) {
-        }
-        return this.responseErrorStream;
+        // not in cassette, get from real request
+        return this.connection.getErrorStream();
     }
 
     /**
@@ -613,7 +610,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public int getConnectTimeout() {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getConnectTimeout();
     }
 
@@ -638,7 +635,9 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public void setConnectTimeout(int timeout) {
-        // ignore for cassette
+        if (cachedInteraction != null) {
+            throw new IllegalStateException("Cannot set anything after interaction has been cached");
+        }
         this.connection.setConnectTimeout(timeout);
     }
 
@@ -654,7 +653,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public int getReadTimeout() {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getReadTimeout();
     }
 
@@ -679,7 +678,9 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public void setReadTimeout(int timeout) {
-        // ignore for cassette
+        if (cachedInteraction != null) {
+            throw new IllegalStateException("Cannot set anything after interaction has been cached");
+        }
         this.connection.setReadTimeout(timeout);
     }
 
@@ -692,18 +693,17 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public URL getURL() {
-        cacheAndRecordIfNeeded();
-        if (this.oldVcr.inPlaybackMode()) {
-            if (loadMatchingInteraction()) {
-                try {
-                    return this.cachedInteraction.getResponse().getUri().toURL();
-                } catch (Exception ignored) {
-                    return null;
-                }
+        try {
+            buildCache();
+            String urlString =
+                    getStringElementFromCache((interaction) -> interaction.getResponse().getUriString(), null);
+            if (urlString == null) {
+                throw new IllegalStateException("Could not load URL from cache");
             }
-            return null;
+            return new URL(urlString);
+        } catch (VCRException | MalformedURLException e) {
+            throw new RuntimeException(e);
         }
-        return this.requestURL;
     }
 
     /**
@@ -740,6 +740,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public long getExpiration() {
+        // not in cassette, go to real connection
         return this.connection.getExpiration();
     }
 
@@ -755,18 +756,13 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public String getHeaderField(String name) {
-        cacheAndRecordIfNeeded();
-        if (this.oldVcr.inPlaybackMode()) {
-            if (loadMatchingInteraction()) {
-                try {
-                    return this.cachedInteraction.getResponse().getHeaders().get(name).toString();
-                } catch (Exception ignored) {
-                    return null;
-                }
-            }
-            return null;
+        try {
+            buildCache();
+            return getStringElementFromCache(
+                    (interaction) -> interaction.getResponse().getHeaders().get(name).toString(), null);
+        } catch (VCRException e) {
+            throw new RuntimeException(e);
         }
-        return this.connection.getHeaderField(name);
     }
 
     /**
@@ -781,18 +777,15 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public Map<String, List<String>> getHeaderFields() {
-        cacheAndRecordIfNeeded();
-        if (this.oldVcr.inPlaybackMode()) {
-            if (loadMatchingInteraction()) {
-                try {
-                    return this.cachedInteraction.getResponse().getHeaders();
-                } catch (Exception ignored) {
-                    return null;
-                }
+        try {
+            buildCache();
+            if (cachedInteraction == null) {
+                return Collections.emptyMap();
             }
-            return null;
+            return cachedInteraction.getResponse().getHeaders();
+        } catch (VCRException e) {
+            throw new RuntimeException(e);
         }
-        return this.responseHeaderFields;
     }
 
     /**
@@ -843,18 +836,12 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public Object getContent() throws IOException {
-        cacheAndRecordIfNeeded();
-        if (this.oldVcr.inPlaybackMode()) {
-            if (loadMatchingInteraction()) {
-                try {
-                    return this.cachedInteraction.getResponse().getBody();
-                } catch (Exception ignored) {
-                    return null;
-                }
-            }
-            return null;
+        try {
+            buildCache();
+            return getObjectElementFromCache((interaction) -> interaction.getResponse().getBody(), null);
+        } catch (VCRException e) {
+            throw new RuntimeException(e);
         }
-        return this.connection.getContent();
     }
 
     /**
@@ -864,7 +851,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public String toString() {
-        // ignore for cassette
+        // use the built-in toString() method
         return this.connection.toString();
     }
 
@@ -878,7 +865,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public boolean getDoInput() {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getDoInput();
     }
 
@@ -896,7 +883,9 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public void setDoInput(boolean doinput) {
-        // ignore for cassette
+        if (cachedInteraction != null) {
+            throw new IllegalStateException("Cannot set anything after interaction has been cached");
+        }
         this.connection.setDoInput(doinput);
     }
 
@@ -910,7 +899,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public boolean getDoOutput() {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getDoOutput();
     }
 
@@ -928,7 +917,9 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public void setDoOutput(boolean dooutput) {
-        // ignore for cassette
+        if (cachedInteraction != null) {
+            throw new IllegalStateException("Cannot set anything after interaction has been cached");
+        }
         if (this.connection.getDoOutput() != dooutput) {
             this.connection.setDoOutput(dooutput);
         }
@@ -944,7 +935,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public boolean getAllowUserInteraction() {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getAllowUserInteraction();
     }
 
@@ -958,7 +949,9 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public void setAllowUserInteraction(boolean allowuserinteraction) {
-        // ignore for cassette
+        if (cachedInteraction != null) {
+            throw new IllegalStateException("Cannot set anything after interaction has been cached");
+        }
         this.connection.setAllowUserInteraction(allowuserinteraction);
     }
 
@@ -972,7 +965,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public boolean getUseCaches() {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getUseCaches();
     }
 
@@ -995,7 +988,9 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public void setUseCaches(boolean usecaches) {
-        // ignore for cassette
+        if (cachedInteraction != null) {
+            throw new IllegalStateException("Cannot set anything after interaction has been cached");
+        }
         this.connection.setUseCaches(usecaches);
     }
 
@@ -1007,7 +1002,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public long getIfModifiedSince() {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getIfModifiedSince();
     }
 
@@ -1021,7 +1016,9 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public void setIfModifiedSince(long ifmodifiedsince) {
-        // ignore for cassette
+        if (cachedInteraction != null) {
+            throw new IllegalStateException("Cannot set anything after interaction has been cached");
+        }
         this.connection.setIfModifiedSince(ifmodifiedsince);
     }
 
@@ -1039,7 +1036,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public boolean getDefaultUseCaches() {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getDefaultUseCaches();
     }
 
@@ -1052,7 +1049,9 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public void setDefaultUseCaches(boolean defaultusecaches) {
-        // ignore for cassette
+        if (cachedInteraction != null) {
+            throw new IllegalStateException("Cannot set anything after interaction has been cached");
+        }
         this.connection.setDefaultUseCaches(defaultusecaches);
     }
 
@@ -1074,13 +1073,10 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public void setRequestProperty(String key, String value) {
-        List<String> values = new ArrayList<>();
-        values.add(value);
-        this.requestRequestProperties.put(key, values);
+        if (cachedInteraction != null) {
+            throw new IllegalStateException("Cannot set anything after interaction has been cached");
+        }
         this.connection.setRequestProperty(key, value);
-        /*if (this.vcr.inRecordMode()) {
-            recordInteraction();
-        }*/
     }
 
     /**
@@ -1098,13 +1094,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public void addRequestProperty(String key, String value) {
-        List<String> values = new ArrayList<>();
-        values.add(value);
-        this.requestRequestProperties.put(key, values);
         this.connection.addRequestProperty(key, value);
-        /*if (this.vcr.inRecordMode()) {
-            recordInteraction();
-        }*/
     }
 
     /**
@@ -1119,18 +1109,13 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public String getRequestProperty(String key) {
-        cacheAndRecordIfNeeded();
-        if (this.oldVcr.inPlaybackMode()) {
-            if (loadMatchingInteraction()) {
-                try {
-                    return this.cachedInteraction.getRequest().getHeaders().get(key).toString();
-                } catch (Exception ignored) {
-                    return null;
-                }
-            }
-            return null;
+        try {
+            buildCache();
+            return getStringElementFromCache((interaction) -> interaction.getRequest().getHeaders().get(key).toString(),
+                    null);
+        } catch (VCRException e) {
+            throw new RuntimeException(e);
         }
-        return this.connection.getRequestProperty(key);
     }
 
     /**
@@ -1147,42 +1132,31 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public Map<String, List<String>> getRequestProperties() {
-        cacheAndRecordIfNeeded();
-        if (this.oldVcr.inPlaybackMode()) {
-            if (loadMatchingInteraction()) {
-                try {
-                    return this.cachedInteraction.getRequest().getHeaders();
-                } catch (Exception ignored) {
-                    return null;
-                }
+        try {
+            buildCache();
+            if (cachedInteraction == null) {
+                return Collections.emptyMap();
             }
-            return null;
+            return cachedInteraction.getRequest().getHeaders();
+        } catch (VCRException e) {
+            throw new RuntimeException(e);
         }
-        return this.requestRequestProperties;
     }
 
     @Override
     public InputStream getInputStream() throws IOException {
-        // ignore for cassette
-        cacheAndRecordIfNeeded();
-        if (this.oldVcr.inPlaybackMode()) {
-            if (loadMatchingInteraction()) {
-                try {
-                    return Helpers.createInputStream(this.cachedInteraction.getResponse().getBody());
-                } catch (Exception ignored) {
-                    return null;
-                }
-            }
-            return null;
+        try {
+            buildCache();
+            return converter.createInputStream(this.cachedInteraction.getResponse().getBody());
+        } catch (VCRException e) {
+            throw new RuntimeException(e);
         }
-        this.responseInputStream.reset();
-        return this.responseInputStream;
     }
 
     @SuppressWarnings ("deprecation")
     @Override
     public long getHeaderFieldDate(String name, long Default) {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getHeaderFieldDate(name, Default);
     }
 
@@ -1199,7 +1173,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public int getContentLength() {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getContentLength();
     }
 
@@ -1214,7 +1188,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public long getContentLengthLong() {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getContentLengthLong();
     }
 
@@ -1228,7 +1202,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public long getDate() {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getDate();
     }
 
@@ -1242,7 +1216,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public long getLastModified() {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getLastModified();
     }
 
@@ -1262,7 +1236,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public int getHeaderFieldInt(String name, int Default) {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getHeaderFieldInt(name, Default);
     }
 
@@ -1283,7 +1257,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public long getHeaderFieldLong(String name, long Default) {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getHeaderFieldLong(name, Default);
     }
 
@@ -1309,7 +1283,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public Object getContent(Class<?>[] classes) throws IOException {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getContent(classes);
     }
 
@@ -1324,7 +1298,7 @@ public class VCRHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public OutputStream getOutputStream() throws IOException {
-        // ignore for cassette
+        // not in cassette, go to real connection
         return this.connection.getOutputStream();
     }
 }

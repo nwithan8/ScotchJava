@@ -5,7 +5,7 @@ import com.easypost.easyvcr.Cassette;
 import com.easypost.easyvcr.Mode;
 import com.easypost.easyvcr.VCRException;
 import com.easypost.easyvcr.interactionconverters.HttpClientInteractionConverter;
-import com.easypost.easyvcr.requestelements.Response;
+import com.easypost.easyvcr.requestelements.HttpInteraction;
 
 import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
@@ -21,6 +21,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow;
 import java.util.function.Function;
 
+import static com.easypost.easyvcr.internalutilities.Tools.simulateDelay;
+
 public class RecordableBodyHandler implements HttpResponse.BodyHandler<String> {
 
     // only supports UTF_8 charset
@@ -28,13 +30,13 @@ public class RecordableBodyHandler implements HttpResponse.BodyHandler<String> {
     private final Cassette cassette;
     private final Mode mode;
     private final AdvancedSettings advancedSettings;
-    private final HttpClientInteractionConverter httpClientInteractionConverter;
+    private final HttpClientInteractionConverter converter;
 
-    public RecordableBodyHandler(Cassette cassette, Mode mode, AdvancedSettings advancedSettings) {
+    public RecordableBodyHandler(Cassette cassette, Mode mode, AdvancedSettings advancedSettings, HttpClientInteractionConverter converter) {
         this.cassette = cassette;
         this.mode = mode;
         this.advancedSettings = advancedSettings;
-        this.httpClientInteractionConverter = new HttpClientInteractionConverter();
+        this.converter = converter;
     }
 
     /**
@@ -53,23 +55,41 @@ public class RecordableBodyHandler implements HttpResponse.BodyHandler<String> {
      */
     @Override
     public HttpResponse.BodySubscriber<String> apply(HttpResponse.ResponseInfo responseInfo) {
-        // TODO: Bypass and auto mode
         switch (mode) {
             case Record:
                 // Record response information if recording
-                this.httpClientInteractionConverter.noteResponseDetails(responseInfo);
-                return RecordableBodySubscriber.ofRecordable(StandardCharsets.UTF_8, cassette, advancedSettings, httpClientInteractionConverter);
+                this.converter.noteResponseDetails(responseInfo, advancedSettings.censors);
+                return RecordableBodySubscriber.ofRecordable(StandardCharsets.UTF_8, cassette, advancedSettings,
+                        converter);
             case Replay:
                 // Overwrite response information if replaying
-                Response cachedResponse = null;
                 try {
-                    cachedResponse = this.httpClientInteractionConverter.loadCachedResponse(cassette,
+                    HttpInteraction recording = this.converter.loadExistingInteraction(cassette,
                             advancedSettings.matchRules);
+                    assert recording != null;
+                    simulateDelay(recording, advancedSettings);
+                    return HttpResponse.BodySubscribers.replacing(recording.getResponse().getBody());
                 } catch (VCRException e) {
                     e.printStackTrace();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
                 }
-                assert cachedResponse != null;
-                return HttpResponse.BodySubscribers.replacing(cachedResponse.getBody());
+            case Auto:
+                // Find existing recording, otherwise make a new one
+                try {
+                    HttpInteraction recording = this.converter.loadExistingInteraction(cassette,
+                            advancedSettings.matchRules);
+                    assert recording != null;
+                    simulateDelay(recording, advancedSettings);
+                    return HttpResponse.BodySubscribers.replacing(recording.getResponse().getBody());
+                } catch (VCRException e) {
+                    this.converter.noteResponseDetails(responseInfo, advancedSettings.censors);
+                    return RecordableBodySubscriber.ofRecordable(StandardCharsets.UTF_8, cassette, advancedSettings,
+                            converter);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            case Bypass:
             default:
                 return HttpResponse.BodySubscribers.ofString(StandardCharsets.UTF_8);
         }
@@ -77,7 +97,9 @@ public class RecordableBodyHandler implements HttpResponse.BodyHandler<String> {
 
     private static class RecordableBodySubscriber {
 
-        public static HttpResponse.BodySubscriber<String> ofRecordable(Charset charset, Cassette cassette, AdvancedSettings advancedSettings, HttpClientInteractionConverter httpClientInteractionConverter) {
+        public static HttpResponse.BodySubscriber<String> ofRecordable(Charset charset, Cassette cassette,
+                                                                       AdvancedSettings advancedSettings,
+                                                                       HttpClientInteractionConverter converter) {
             Objects.requireNonNull(charset);
             // return HttpResponse.BodySubscribers.ofString(charset);
             return new HttpResponse.BodySubscriber<String>() {
@@ -123,8 +145,8 @@ public class RecordableBodyHandler implements HttpResponse.BodyHandler<String> {
                 @Override
                 public CompletionStage<String> getBody() {
                     try {
-                        httpClientInteractionConverter.noteResponseBody(result.get());
-                        httpClientInteractionConverter.saveRecording(cassette, advancedSettings.matchRules, false);
+                        converter.noteResponseBody(result.get());
+                        converter.saveRecording(cassette, advancedSettings.matchRules, false);
                     } catch (InterruptedException | ExecutionException | VCRException e) {
                         e.printStackTrace();
                     }

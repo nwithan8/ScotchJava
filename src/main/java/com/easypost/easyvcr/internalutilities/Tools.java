@@ -1,5 +1,7 @@
 package com.easypost.easyvcr.internalutilities;
 
+import com.easypost.easyvcr.AdvancedSettings;
+import com.easypost.easyvcr.requestelements.HttpInteraction;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.apache.http.message.BasicNameValuePair;
@@ -26,11 +28,11 @@ public class Tools {
         return Paths.get(folderPath, fileName).toString();
     }
 
-    public static String ToBase64String(String input) {
+    public static String toBase64String(String input) {
         return Base64.getEncoder().encodeToString(input.getBytes());
     }
 
-    public static Map<String, String> QueryParametersToMap(URI uri) {
+    public static Map<String, String> queryParametersToMap(URI uri) {
         List<NameValuePair> receivedQueryDict =
                 URLEncodedUtils.parse(uri, StandardCharsets.UTF_8);
         if (receivedQueryDict == null || receivedQueryDict.size() == 0) {
@@ -43,7 +45,7 @@ public class Tools {
         return queryDict;
     }
 
-    public static List<NameValuePair> MapToQueryParameters(Map<String, String> map) {
+    public static List<NameValuePair> mapToQueryParameters(Map<String, String> map) {
         if (map == null || map.size() == 0) {
             return Collections.emptyList();
         }
@@ -52,5 +54,13 @@ public class Tools {
             nvpList.add(new BasicNameValuePair(entry.getKey(), entry.getValue()));
         }
         return nvpList;
+    }
+
+    public static void simulateDelay(HttpInteraction interaction, AdvancedSettings advancedSettings) throws InterruptedException {
+        if (advancedSettings.simulateDelay) {
+            Thread.sleep(interaction.getDuration());
+        } else {
+            Thread.sleep(advancedSettings.manualDelay);
+        }
     }
 }

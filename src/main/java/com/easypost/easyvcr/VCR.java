@@ -1,6 +1,12 @@
 package com.easypost.easyvcr;
 
 import com.easypost.easyvcr.clients.apachehttpclient.RecordableCloseableHttpClient;
+import com.easypost.easyvcr.clients.httpclient.RecordableHttpRequest;
+import com.easypost.easyvcr.clients.httpurlconnection.RecordableURL;
+
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URL;
 
 public class VCR {
     private Cassette _currentCassette;
@@ -22,9 +28,20 @@ public class VCR {
         return _currentCassette.Name;
     }
 
-    // TODO: Add client
     public RecordableCloseableHttpClient getApacheHttpClient() {
         return new RecordableCloseableHttpClient(this._currentCassette, this._mode, this._advancedSettings);
+    }
+
+    public RecordableHttpRequest.Builder getHttpClientBuilder(URI uri) {
+        return RecordableHttpRequest.newBuilder(uri, this._currentCassette, this._mode, this._advancedSettings);
+    }
+
+    public RecordableURL getHttpUrlConnection(URL url) throws MalformedURLException {
+        return new RecordableURL(url, this._currentCassette, this._mode, this._advancedSettings);
+    }
+
+    public RecordableURL getHttpUrlConnection(String url) throws MalformedURLException {
+        return new RecordableURL(url, this._currentCassette, this._mode, this._advancedSettings);
     }
 
     public Mode getMode() {

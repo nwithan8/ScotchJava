@@ -3,6 +3,7 @@ package com.easypost.easyvcr.clients.httpclient;
 import com.easypost.easyvcr.AdvancedSettings;
 import com.easypost.easyvcr.Cassette;
 import com.easypost.easyvcr.Mode;
+import com.easypost.easyvcr.interactionconverters.HttpClientInteractionConverter;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -19,7 +20,7 @@ public abstract class RecordableHttpRequest extends HttpRequest {
 
     public static RecordableHttpRequest.Builder newBuilder(URI uri, Cassette cassette, Mode mode,
                                                            AdvancedSettings advancedSettings) {
-        return new RecordableHttpRequestBuilderImpl(uri, cassette, mode, advancedSettings);
+        return new RecordableHttpRequestBuilderImpl(uri, cassette, mode, advancedSettings != null ? advancedSettings : new AdvancedSettings(), new HttpClientInteractionConverter());
     }
 
     public RecordableBodyHandler getBodyHandler() {

@@ -6,6 +6,7 @@ import com.easypost.easyvcr.requestelements.Request;
 import com.easypost.easyvcr.requestelements.Response;
 import com.easypost.easyvcr.requestelements.Status;
 import org.apache.http.Header;
+import org.apache.http.ProtocolVersion;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
@@ -13,6 +14,8 @@ import org.apache.http.client.methods.HttpPut;
 
 import java.io.IOException;
 import java.net.URI;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -20,22 +23,36 @@ import java.util.Map;
 
 public class ApacheInteractionConverter extends BaseInteractionConverter {
     public Request createRequest(org.apache.http.HttpRequest httpRequest, Censors censors) {
-        // TODO: Use censors here
-        Request request = new Request();
         try {
-            request.setUri(URI.create(httpRequest.getRequestLine().getUri()));
-            request.setMethod(httpRequest.getRequestLine().getMethod());
-            request.setHeaders(toHeaders(List.of(httpRequest.getAllHeaders())));
+            // collect elements from the connection
+            String method = httpRequest.getRequestLine().getMethod();
+            String uriString = httpRequest.getRequestLine().getUri();
+            Map<String, List<String>> headers = toHeaders(List.of(httpRequest.getAllHeaders()));
+            String body = null;
             if (httpRequest instanceof HttpPost) {
-                request.setBody(readBodyFromInputStream(((HttpPost) httpRequest).getEntity().getContent()));
+                body = readBodyFromInputStream(((HttpPost) httpRequest).getEntity().getContent());
             } else if (httpRequest instanceof HttpPut) {
-                request.setBody(readBodyFromInputStream(((HttpPut) httpRequest).getEntity().getContent()));
+                body = readBodyFromInputStream(((HttpPut) httpRequest).getEntity().getContent());
             } else if (httpRequest instanceof HttpPatch) {
-                request.setBody(readBodyFromInputStream(((HttpPatch) httpRequest).getEntity().getContent()));
+                body = readBodyFromInputStream(((HttpPatch) httpRequest).getEntity().getContent());
             }
+
+            // apply censors
+            uriString = censors.censorQueryParameters(uriString);
+            headers = censors.censorHeaders(headers);
+            body = censors.censorBodyParameters(body);
+
+            // create the request
+            Request request = new Request();
+            request.setUri(URI.create(uriString));
+            request.setMethod(method);
+            request.setHeaders(headers);
+            request.setBody(body);
+            return request;
         } catch (IOException ignored) {
         }
-        return request;
+        // FIXME: make it so this won't blow up on error
+        return null;
     }
 
     public Map<String, List<String>> toHeaders(List<Header> headers) {
@@ -48,29 +65,46 @@ public class ApacheInteractionConverter extends BaseInteractionConverter {
         return map;
     }
 
-    public Response createResponse(CloseableHttpResponse httpResponse, org.apache.http.HttpRequest httpRequest, Censors censors) {
-        // TODO: Use censors here
-        Response response = new Response();
+    public ResponseAndTime createResponse(CloseableHttpResponse httpResponse, org.apache.http.HttpRequest httpRequest,
+                                          Censors censors) {
         try {
-            Status status = new Status(httpResponse.getStatusLine().getStatusCode(),
-                    httpResponse.getStatusLine().getReasonPhrase());
-            response.setStatus(status);
-            response.setHeaders(toHeaders(List.of(httpResponse.getAllHeaders())));
-            response.setBody(readBodyFromInputStream(httpResponse.getEntity().getContent()));
-            response.setUri(URI.create(httpRequest.getRequestLine().getUri()));
-            response.setHttpVersion(httpResponse.getProtocolVersion());
+            // quickly time how long it takes to get the initial response
+            Instant start = Instant.now();
+            int responseCode = httpResponse.getStatusLine().getStatusCode();
+            Instant end = Instant.now();
+            long milliseconds = Duration.between(start, end).toMillis();
+
+            // collect elements from the connection
+            ProtocolVersion httpVersion = httpResponse.getProtocolVersion();
+            String message = httpResponse.getStatusLine().getReasonPhrase();
+            String uriString = httpRequest.getRequestLine().getUri();
+            Map<String, List<String>> headers = toHeaders(List.of(httpResponse.getAllHeaders()));
+            String body = readBodyFromInputStream(httpResponse.getEntity().getContent());
+
+            // apply censors
+            uriString = censors.censorQueryParameters(uriString);
+            headers = censors.censorHeaders(headers);
+            body = censors.censorBodyParameters(body);
+
+            // create the response
+            Response response = new Response();
+            response.setHttpVersion(httpVersion);
+            response.setStatus(new Status(responseCode, message));
+            response.setUri(URI.create(uriString));
+            response.setHeaders(headers);
+            response.setBody(body);
+
+            return new ResponseAndTime(response, milliseconds);
         } catch (IOException ignored) {
         }
-
-        return response;
+        // FIXME: make it so this won't blow up on error
+        return null;
     }
 
     public HttpInteraction createInteraction(CloseableHttpResponse httpResponse,
                                              org.apache.http.HttpRequest httpRequest, Censors censors) {
         Request request = createRequest(httpRequest, censors);
-        Response response = createResponse(httpResponse, httpRequest, censors);
-        return _createInteraction(request, response);
+        ResponseAndTime responseAndTime = createResponse(httpResponse, httpRequest, censors);
+        return _createInteraction(request, responseAndTime.response, responseAndTime.time);
     }
-
-
 }

@@ -5,7 +5,7 @@ public class AdvancedSettings {
 
     public Censors censors = Censors.Default();
 
-    // TODO: interaction converter
+    public boolean simulateDelay = false;
 
-    // TODO: delay
+    public int manualDelay = 0;
 }

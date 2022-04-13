@@ -3,11 +3,9 @@ package com.easypost.easyvcr.interactionconverters;
 import com.easypost.easyvcr.Cassette;
 import com.easypost.easyvcr.MatchRules;
 import com.easypost.easyvcr.VCRException;
-import com.easypost.easyvcr.clients.httpclient.RecordableImmutableHttpRequest;
 import com.easypost.easyvcr.requestelements.HttpInteraction;
 import com.easypost.easyvcr.requestelements.Request;
 import com.easypost.easyvcr.requestelements.Response;
-import com.easypost.easyvcr.requestelements.Status;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -15,12 +13,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.http.HttpResponse;
 
 public class BaseInteractionConverter {
-
-    protected Request currentRequest;
-    protected Response currentResponse;
 
     public InputStream copyInputStream(InputStream stream) {
         if (stream == null) {
@@ -71,7 +65,8 @@ public class BaseInteractionConverter {
         return body;
     }
 
-    public HttpInteraction findMatchingInteraction(Cassette cassette, Request request, MatchRules matchRules) throws VCRException {
+    public HttpInteraction findMatchingInteraction(Cassette cassette, Request request, MatchRules matchRules)
+            throws VCRException {
         for (HttpInteraction recordedInteraction : cassette.read()) {
             if (matchRules.requestsMatch(request, recordedInteraction.getRequest())) {
                 return recordedInteraction;
@@ -80,47 +75,17 @@ public class BaseInteractionConverter {
         return null;
     }
 
-    protected HttpInteraction _createInteraction(Request request, Response response) {
-        return new HttpInteraction(request, response);
+    protected HttpInteraction _createInteraction(Request request, Response response, long duration) {
+        return new HttpInteraction(request, response, duration);
     }
 
-    // Happens first when making a request
-    public void noteRequestBody(String body) {
-        currentRequest.setBody(body);
-    }
+    public static class ResponseAndTime {
+        public Response response;
+        public long time;
 
-    // Happens second when making a request
-    public void noteRequestDetails(RecordableImmutableHttpRequest httpRequest) {
-        currentRequest.setMethod(httpRequest.method());
-        currentRequest.setUri(httpRequest.uri());
-        currentRequest.setHeaders(httpRequest.headers());
-    }
-
-    // Happens first when getting a response
-    public void noteResponseDetails(HttpResponse.ResponseInfo responseInfo) {
-        Status status = new Status(responseInfo.statusCode(), null);
-        currentResponse.setStatus(status);
-        currentResponse.setHeaders(responseInfo.headers().map());
-        currentResponse.setHttpVersion(responseInfo.version());
-    }
-
-    public Response loadCachedResponse(Cassette cassette, MatchRules matchRules) throws VCRException {
-        HttpInteraction matchingInteraction = findMatchingInteraction(cassette, currentRequest, matchRules);
-        if (matchingInteraction == null) {
-            return new Response();
+        public ResponseAndTime(Response response, long time) {
+            this.response = response;
+            this.time = time;
         }
-        return matchingInteraction.getResponse();
     }
-
-    // Happens second when getting a response
-    public void noteResponseBody(String body) {
-        currentResponse.setBody(body);
-    }
-
-    public void saveRecording(Cassette cassette, MatchRules matchRules, boolean bypassSearch) throws VCRException {
-        assert cassette != null;
-        HttpInteraction interaction = new HttpInteraction(this.currentRequest, this.currentResponse);
-        cassette.updateInteraction(interaction, matchRules, bypassSearch);
-    }
-
 }

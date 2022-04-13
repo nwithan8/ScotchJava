@@ -9,6 +9,9 @@ public class HttpInteraction extends HttpElement {
 
     private Response response;
 
+    // request duration in milliseconds
+    private long duration = 0;
+
     public long getRecordedAt() {
         return this.recordedAt;
     }
@@ -33,9 +36,18 @@ public class HttpInteraction extends HttpElement {
         this.response = response;
     }
 
-    public HttpInteraction(Request request, Response response) {
+    public long getDuration() {
+        return this.duration;
+    }
+
+    public void setDuration(final int duration) {
+        this.duration = duration;
+    }
+
+    public HttpInteraction(Request request, Response response, long duration) {
         this.request = request;
         this.response = response;
         this.recordedAt = Instant.now().getEpochSecond();
+        this.duration = duration;
     }
 }
