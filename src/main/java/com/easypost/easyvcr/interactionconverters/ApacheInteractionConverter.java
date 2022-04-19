@@ -21,6 +21,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.easypost.easyvcr.internalutilities.Tools.readFromInputStream;
+
 public class ApacheInteractionConverter extends BaseInteractionConverter {
     public Request createRequest(org.apache.http.HttpRequest httpRequest, Censors censors) {
         try {
@@ -30,11 +32,11 @@ public class ApacheInteractionConverter extends BaseInteractionConverter {
             Map<String, List<String>> headers = toHeaders(List.of(httpRequest.getAllHeaders()));
             String body = null;
             if (httpRequest instanceof HttpPost) {
-                body = readBodyFromInputStream(((HttpPost) httpRequest).getEntity().getContent());
+                body = readFromInputStream(((HttpPost) httpRequest).getEntity().getContent());
             } else if (httpRequest instanceof HttpPut) {
-                body = readBodyFromInputStream(((HttpPut) httpRequest).getEntity().getContent());
+                body = readFromInputStream(((HttpPut) httpRequest).getEntity().getContent());
             } else if (httpRequest instanceof HttpPatch) {
-                body = readBodyFromInputStream(((HttpPatch) httpRequest).getEntity().getContent());
+                body = readFromInputStream(((HttpPatch) httpRequest).getEntity().getContent());
             }
 
             // apply censors
@@ -79,7 +81,7 @@ public class ApacheInteractionConverter extends BaseInteractionConverter {
             String message = httpResponse.getStatusLine().getReasonPhrase();
             String uriString = httpRequest.getRequestLine().getUri();
             Map<String, List<String>> headers = toHeaders(List.of(httpResponse.getAllHeaders()));
-            String body = readBodyFromInputStream(httpResponse.getEntity().getContent());
+            String body = readFromInputStream(httpResponse.getEntity().getContent());
 
             // apply censors
             uriString = censors.censorQueryParameters(uriString);

@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static com.easypost.easyvcr.internalutilities.Tools.createInputStream;
 import static com.easypost.easyvcr.internalutilities.Tools.simulateDelay;
 
 public class RecordableHttpURLConnection extends HttpURLConnection {
@@ -199,7 +200,6 @@ public class RecordableHttpURLConnection extends HttpURLConnection {
                 }
                 break;
             case Bypass:
-                cacheInteraction(false);
                 break;
         }
     }
@@ -289,6 +289,9 @@ public class RecordableHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public String getHeaderFieldKey(int n) {
+        if (mode == Mode.Bypass) {
+            return this.connection.getHeaderFieldKey(n);
+        }
         try {
             buildCache();
             return getStringElementFromCache(
@@ -418,6 +421,9 @@ public class RecordableHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public String getHeaderField(int n) {
+        if (mode == Mode.Bypass) {
+            return this.connection.getHeaderField(n);
+        }
         try {
             buildCache();
             return getStringElementFromCache(
@@ -471,6 +477,9 @@ public class RecordableHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public String getRequestMethod() {
+        if (mode == Mode.Bypass) {
+            return this.connection.getRequestMethod();
+        }
         try {
             buildCache();
             return getStringElementFromCache((interaction) -> interaction.getRequest().getMethod(), null);
@@ -524,6 +533,9 @@ public class RecordableHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public int getResponseCode() throws IOException {
+        if (mode == Mode.Bypass) {
+            return this.connection.getResponseCode();
+        }
         try {
             buildCache();
             return getIntegerElementFromCache((interaction) -> interaction.getResponse().getStatus().getCode(), 0);
@@ -548,6 +560,9 @@ public class RecordableHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public String getResponseMessage() throws IOException {
+        if (mode == Mode.Bypass) {
+            return this.connection.getResponseMessage();
+        }
         try {
             buildCache();
             return getStringElementFromCache((interaction) -> interaction.getResponse().getStatus().getMessage(), null);
@@ -693,6 +708,9 @@ public class RecordableHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public URL getURL() {
+        if (mode == Mode.Bypass) {
+            return this.connection.getURL();
+        }
         try {
             buildCache();
             String urlString =
@@ -756,6 +774,9 @@ public class RecordableHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public String getHeaderField(String name) {
+        if (mode == Mode.Bypass) {
+            return this.connection.getHeaderField(name);
+        }
         try {
             buildCache();
             return getStringElementFromCache(
@@ -777,6 +798,9 @@ public class RecordableHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public Map<String, List<String>> getHeaderFields() {
+        if (mode == Mode.Bypass) {
+            return this.connection.getHeaderFields();
+        }
         try {
             buildCache();
             if (cachedInteraction == null) {
@@ -836,6 +860,9 @@ public class RecordableHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public Object getContent() throws IOException {
+        if (mode == Mode.Bypass) {
+            return this.connection.getContent();
+        }
         try {
             buildCache();
             return getObjectElementFromCache((interaction) -> interaction.getResponse().getBody(), null);
@@ -1109,6 +1136,9 @@ public class RecordableHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public String getRequestProperty(String key) {
+        if (mode == Mode.Bypass) {
+            return this.connection.getRequestProperty(key);
+        }
         try {
             buildCache();
             return getStringElementFromCache((interaction) -> interaction.getRequest().getHeaders().get(key).toString(),
@@ -1132,6 +1162,9 @@ public class RecordableHttpURLConnection extends HttpURLConnection {
      */
     @Override
     public Map<String, List<String>> getRequestProperties() {
+        if (mode == Mode.Bypass) {
+            return this.connection.getRequestProperties();
+        }
         try {
             buildCache();
             if (cachedInteraction == null) {
@@ -1145,9 +1178,12 @@ public class RecordableHttpURLConnection extends HttpURLConnection {
 
     @Override
     public InputStream getInputStream() throws IOException {
+        if (mode == Mode.Bypass) {
+            return this.connection.getInputStream();
+        }
         try {
             buildCache();
-            return converter.createInputStream(this.cachedInteraction.getResponse().getBody());
+            return createInputStream(this.cachedInteraction.getResponse().getBody());
         } catch (VCRException e) {
             throw new RuntimeException(e);
         }

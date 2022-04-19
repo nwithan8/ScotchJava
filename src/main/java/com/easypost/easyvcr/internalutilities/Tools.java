@@ -6,7 +6,13 @@ import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.apache.http.message.BasicNameValuePair;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
@@ -43,6 +49,56 @@ public class Tools {
             queryDict.put(pair.getName(), pair.getValue());
         }
         return queryDict;
+    }
+
+    public static InputStream createInputStream(String string) {
+        if (string == null) {
+            return new ByteArrayInputStream(new byte[] { });
+        }
+        return new ByteArrayInputStream(string.getBytes());
+    }
+
+    public static InputStream copyInputStream(InputStream stream) {
+        if (stream == null) {
+            return null;
+        }
+        try {
+            stream.reset();
+        } catch (IOException ignored) {
+        }
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            byte[] buffer = new byte[1024];
+            int len;
+            // TODO: Stream not resetting (len = -1)
+            while ((len = stream.read(buffer)) > -1) {
+                baos.write(buffer, 0, len);
+            }
+            baos.flush();
+            return new ByteArrayInputStream(baos.toByteArray());
+        } catch (IOException ignored) {
+            return new ByteArrayInputStream(new byte[] { });
+        }
+    }
+
+    public static String readFromInputStream(InputStream stream) {
+        if (stream == null) {
+            return null;
+        }
+        InputStream copy = copyInputStream(stream);
+        String str = null;
+        try {
+            BufferedReader in = new BufferedReader(new InputStreamReader(copy));
+            String inputLine;
+            StringBuilder content = new StringBuilder();
+            while ((inputLine = in.readLine()) != null) {
+                content.append(inputLine);
+            }
+            in.close();
+            str = content.toString();
+        } catch (IOException ignored) {
+        }
+        return str;
     }
 
     public static List<NameValuePair> mapToQueryParameters(Map<String, String> map) {

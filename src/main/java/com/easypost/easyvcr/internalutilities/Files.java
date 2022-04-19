@@ -11,8 +11,15 @@ import java.util.List;
 public class Files {
     public static void createFileIfNotExists(String filePath) throws IOException {
         try {
-            java.nio.file.Files.createFile(Paths.get(filePath));
-        } catch (FileAlreadyExistsException ignored) {
+
+            File file = new File(filePath);
+            File parentFolder = file.toPath().getParent().toFile();
+            if (!parentFolder.exists()) {
+                parentFolder.mkdirs();
+            }
+            file.createNewFile(); // if file already exists will do nothing
+        } catch (Exception ignored) {
+            throw new IOException("Could not create file");
         }
     }
 
@@ -48,6 +55,7 @@ public class Files {
             myWriter.write(string);
             myWriter.close();
         } catch (IOException ignored) {
+            System.out.println("An error occurred while writing to the file.");
         }
     }
 }

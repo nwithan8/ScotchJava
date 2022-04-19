@@ -15,6 +15,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+import static com.easypost.easyvcr.internalutilities.Tools.readFromInputStream;
+
 public class HttpUrlConnectionInteractionConverter extends BaseInteractionConverter {
     public Request createRecordedRequest(HttpURLConnection connection, Censors censors) {
         try {
@@ -57,8 +59,8 @@ public class HttpUrlConnectionInteractionConverter extends BaseInteractionConver
             String body = null;
             String errors = null;
             try {
-                body = readBodyFromInputStream(connection.getInputStream());
-                errors = readBodyFromInputStream(connection.getErrorStream());
+                body = readFromInputStream(connection.getInputStream());
+                errors = readFromInputStream(connection.getErrorStream());
             } catch (NullPointerException ignored) {
             }
 

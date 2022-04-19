@@ -8,7 +8,7 @@ public class CassetteOrder {
         Ascending, Descending
     }
 
-    static class OrderOption {
+    public static class OrderOption {
         public OrderSerializer serializer;
 
         protected OrderOption(OrderSerializer orderSerializer) {

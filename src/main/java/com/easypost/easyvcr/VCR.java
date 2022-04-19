@@ -29,11 +29,13 @@ public class VCR {
     }
 
     public RecordableCloseableHttpClient getApacheHttpClient() {
-        return new RecordableCloseableHttpClient(this._currentCassette, this._mode, this._advancedSettings);
+        throw new UnsupportedOperationException("ApacheHttpClient is not supported in this version of EasyVCR");
+        // return new RecordableCloseableHttpClient(this._currentCassette, this._mode, this._advancedSettings);
     }
 
     public RecordableHttpRequest.Builder getHttpClientBuilder(URI uri) {
-        return RecordableHttpRequest.newBuilder(uri, this._currentCassette, this._mode, this._advancedSettings);
+        throw new UnsupportedOperationException("HttpClient is not supported in this version of EasyVCR");
+        // return RecordableHttpRequest.newBuilder(uri, this._currentCassette, this._mode, this._advancedSettings);
     }
 
     public RecordableURL getHttpUrlConnection(URL url) throws MalformedURLException {
@@ -88,6 +90,10 @@ public class VCR {
 
     public void replay() {
         setMode(Mode.Replay);
+    }
+
+    public void recordIfNeeded() {
+        setMode(Mode.Auto);
     }
 
     private Mode getModeFromEnvironment() {

@@ -84,6 +84,8 @@ public class RecordableCloseableHttpClient extends CloseableHttpClient {
                 try {
                     HttpInteraction recording = loadExistingInteraction(httpHost, httpRequest, httpContext);
                     simulateDelay(recording, advancedSettings);
+                    assert recording != null;
+                    return recording.getResponse().toCloseableHttpResponse();
                 } catch (VCRException | InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -91,6 +93,8 @@ public class RecordableCloseableHttpClient extends CloseableHttpClient {
                 try {
                     HttpInteraction recording = loadExistingInteraction(httpHost, httpRequest, httpContext);
                     simulateDelay(recording, advancedSettings);
+                    assert recording != null;
+                    return recording.getResponse().toCloseableHttpResponse();
                 } catch (VCRException e) {
                     try {
                         return sendAndRecordResponse(httpHost, httpRequest, httpContext);

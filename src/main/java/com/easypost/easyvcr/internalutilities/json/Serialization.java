@@ -25,21 +25,11 @@ public class Serialization {
 
     public static String convertObjectToJson(Object obj, OrderSerializer orderSerializer) {
         Gson gson = new Gson();
+        /*
         if (orderSerializer != null) {
             gson = new GsonBuilder().registerTypeAdapter(obj.getClass(), orderSerializer).create();
         }
+         */
         return gson.toJson(obj);
-    }
-
-    public static String convertListOfObjectsToJson(List<?> list) {
-        return convertListOfObjectsToJson(list, null);
-    }
-
-    public static String convertListOfObjectsToJson(List<?> list, OrderSerializer orderSerializer) {
-        Gson gson = new Gson();
-        if (orderSerializer != null) {
-            gson = new GsonBuilder().registerTypeAdapter(list.get(0).getClass(), orderSerializer).create();
-        }
-        return gson.toJson(list);
     }
 }

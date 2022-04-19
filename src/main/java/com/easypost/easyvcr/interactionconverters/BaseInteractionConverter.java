@@ -7,63 +7,7 @@ import com.easypost.easyvcr.requestelements.HttpInteraction;
 import com.easypost.easyvcr.requestelements.Request;
 import com.easypost.easyvcr.requestelements.Response;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-
 public class BaseInteractionConverter {
-
-    public InputStream copyInputStream(InputStream stream) {
-        if (stream == null) {
-            return null;
-        }
-        try {
-            stream.reset();
-        } catch (IOException ignored) {
-        }
-        try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            byte[] buffer = new byte[1024];
-            int len;
-            while ((len = stream.read(buffer)) > -1) {
-                baos.write(buffer, 0, len);
-            }
-            baos.flush();
-            return new ByteArrayInputStream(baos.toByteArray());
-        } catch (IOException ignored) {
-            return new ByteArrayInputStream(new byte[] { });
-        }
-    }
-
-    public InputStream createInputStream(String string) {
-        if (string == null) {
-            return new ByteArrayInputStream(new byte[] { });
-        }
-        return new ByteArrayInputStream(string.getBytes());
-    }
-
-    public String readBodyFromInputStream(InputStream stream) {
-        if (stream == null) {
-            return null;
-        }
-        InputStream copy = copyInputStream(stream);
-        String body = null;
-        try {
-            BufferedReader in = new BufferedReader(new InputStreamReader(copy));
-            String inputLine;
-            StringBuilder content = new StringBuilder();
-            while ((inputLine = in.readLine()) != null) {
-                content.append(inputLine);
-            }
-            in.close();
-            body = content.toString();
-        } catch (IOException ignored) {
-        }
-        return body;
-    }
 
     public HttpInteraction findMatchingInteraction(Cassette cassette, Request request, MatchRules matchRules)
             throws VCRException {
