@@ -1,5 +1,4 @@
 import com.easypost.easyvcr.Cassette;
-import com.easypost.easyvcr.CassetteOrder;
 import com.easypost.easyvcr.Mode;
 import com.easypost.easyvcr.VCR;
 import com.easypost.easyvcr.clients.apachehttpclient.RecordableCloseableHttpClient;
@@ -17,12 +16,8 @@ public class TestUtils {
 
     public static final String cassetteFolder = "cassettes";
 
-    public static Cassette getCassette(String cassetteName, CassetteOrder.OrderOption orderOption) {
-        return new Cassette(cassetteFolder, cassetteName, orderOption);
-    }
-
     public static Cassette getCassette(String cassetteName) {
-        return getCassette(cassetteName, null);
+        return new Cassette(cassetteFolder, cassetteName);
     }
 
     public static RecordableHttpRequest getSimpleHttpClient(String url, String cassetteName, Mode mode)
@@ -31,20 +26,19 @@ public class TestUtils {
         return RecordableHttpRequest.newBuilder(new URI(url), cassette, mode, null).build();
     }
 
-    public static RecordableCloseableHttpClient getSimpleApacheClient(String cassetteName, Mode mode)
-            throws URISyntaxException {
+    public static RecordableCloseableHttpClient getSimpleApacheClient(String cassetteName, Mode mode) {
         Cassette cassette = getCassette(cassetteName);
         return new RecordableCloseableHttpClient(cassette, mode, null);
     }
 
     public static RecordableHttpURLConnection getSimpleHttpURLConnection(String url, String cassetteName, Mode mode)
-            throws URISyntaxException, IOException {
+            throws IOException {
         Cassette cassette = getCassette(cassetteName);
         return new RecordableURL(new URL(url), cassette, mode, null).openConnection();
     }
 
     public static RecordableHttpsURLConnection getSimpleHttpsURLConnection(String url, String cassetteName, Mode mode)
-            throws URISyntaxException, IOException {
+            throws IOException {
         Cassette cassette = getCassette(cassetteName);
         return new RecordableURL(new URL(url), cassette, mode, null).openConnectionSecure();
     }

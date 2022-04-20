@@ -18,18 +18,11 @@ public class Cassette {
 
     private final String _filePath;
 
-    private final CassetteOrder.OrderOption _orderOption;
-
     private boolean _locked;
 
-    public Cassette(String folderPath, String cassetteName, CassetteOrder.OrderOption order) {
-        _orderOption = order == null ? new CassetteOrder.Alphabetical() : order;
+    public Cassette(String folderPath, String cassetteName) {
         Name = cassetteName;
         _filePath = Tools.getFilePath(folderPath, cassetteName + ".json");
-    }
-
-    public Cassette(String folderPath, String cassetteName) {
-        this(folderPath, cassetteName, new CassetteOrder.Alphabetical());
     }
 
     public int count() {
@@ -63,7 +56,7 @@ public class Cassette {
             return new ArrayList<>();
         }
 
-        ArrayList<HttpInteraction> interactions = new ArrayList<HttpInteraction>();
+        ArrayList<HttpInteraction> interactions = new ArrayList<>();
 
         String jsonString = Files.readFile(_filePath);
         if (jsonString == null) {
@@ -73,7 +66,7 @@ public class Cassette {
 
         Gson gson = new Gson();
         for (JsonElement interaction : cassetteParseResult.getAsJsonArray()) {
-            interactions.add(gson.fromJson(interaction, HttpInteraction.class));
+            interactions.add(Serialization.convertJsonToObject(interaction, HttpInteraction.class));
         }
         return interactions;
     }
@@ -113,7 +106,7 @@ public class Cassette {
         checkIfLocked();
 
 
-        String cassetteString = Serialization.convertObjectToJson(httpInteractions, _orderOption.serializer);
+        String cassetteString = Serialization.convertObjectToJson(httpInteractions);
 
         Files.writeFile(_filePath, cassetteString);
     }
