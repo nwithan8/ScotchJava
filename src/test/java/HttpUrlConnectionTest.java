@@ -1,6 +1,5 @@
 import com.easypost.easyvcr.Cassette;
 import com.easypost.easyvcr.Mode;
-import com.easypost.easyvcr.clients.httpurlconnection.RecordableHttpURLConnection;
 import com.easypost.easyvcr.clients.httpurlconnection.RecordableHttpsURLConnection;
 import com.easypost.easyvcr.clients.httpurlconnection.RecordableURL;
 import org.junit.Assert;
@@ -17,13 +16,16 @@ public class HttpUrlConnectionTest {
         Cassette cassette = new Cassette("cassettes", "test");
 
         // record a request first
-        RecordableHttpsURLConnection initialConnection = new RecordableURL("https://www.google.com", cassette, Mode.Record).openConnectionSecure();
+        RecordableHttpsURLConnection initialConnection =
+                new RecordableURL("https://www.google.com", cassette, Mode.Record).openConnectionSecure();
         int responseCode = initialConnection.getResponseCode();  // get will trigger a cache-write
 
         // now make a real request and a replay request
         // one is a real (in-memory cached) request, the other is a replay (loaded from file) request
-        RecordableHttpsURLConnection realConnection = new RecordableURL("https://www.google.com", cassette, Mode.Bypass).openConnectionSecure();
-        RecordableHttpsURLConnection recordedConnection = new RecordableURL("https://www.google.com", cassette, Mode.Replay).openConnectionSecure();
+        RecordableHttpsURLConnection realConnection =
+                new RecordableURL("https://www.google.com", cassette, Mode.Bypass).openConnectionSecure();
+        RecordableHttpsURLConnection recordedConnection =
+                new RecordableURL("https://www.google.com", cassette, Mode.Replay).openConnectionSecure();
 
 
         Instant start = Instant.now();

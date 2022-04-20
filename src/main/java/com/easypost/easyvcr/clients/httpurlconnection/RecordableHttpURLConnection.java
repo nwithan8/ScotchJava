@@ -8,11 +8,7 @@ import com.easypost.easyvcr.interactionconverters.HttpUrlConnectionInteractionCo
 import com.easypost.easyvcr.requestelements.HttpInteraction;
 import com.easypost.easyvcr.requestelements.Request;
 
-import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLPeerUnverifiedException;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.SSLSocketFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -26,12 +22,9 @@ import java.net.SocketPermission;
 import java.net.URL;
 import java.net.UnknownServiceException;
 import java.security.Permission;
-import java.security.Principal;
-import java.security.cert.Certificate;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 
 import static com.easypost.easyvcr.internalutilities.Tools.createInputStream;

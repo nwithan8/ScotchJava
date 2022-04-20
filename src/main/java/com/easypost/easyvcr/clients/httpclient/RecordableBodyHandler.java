@@ -32,7 +32,8 @@ public class RecordableBodyHandler implements HttpResponse.BodyHandler<String> {
     private final AdvancedSettings advancedSettings;
     private final HttpClientInteractionConverter converter;
 
-    public RecordableBodyHandler(Cassette cassette, Mode mode, AdvancedSettings advancedSettings, HttpClientInteractionConverter converter) {
+    public RecordableBodyHandler(Cassette cassette, Mode mode, AdvancedSettings advancedSettings,
+                                 HttpClientInteractionConverter converter) {
         this.cassette = cassette;
         this.mode = mode;
         this.advancedSettings = advancedSettings;
@@ -64,8 +65,8 @@ public class RecordableBodyHandler implements HttpResponse.BodyHandler<String> {
             case Replay:
                 // Overwrite response information if replaying
                 try {
-                    HttpInteraction recording = this.converter.loadExistingInteraction(cassette,
-                            advancedSettings.matchRules);
+                    HttpInteraction recording =
+                            this.converter.loadExistingInteraction(cassette, advancedSettings.matchRules);
                     assert recording != null;
                     simulateDelay(recording, advancedSettings);
                     return HttpResponse.BodySubscribers.replacing(recording.getResponse().getBody());
@@ -77,8 +78,8 @@ public class RecordableBodyHandler implements HttpResponse.BodyHandler<String> {
             case Auto:
                 // Find existing recording, otherwise make a new one
                 try {
-                    HttpInteraction recording = this.converter.loadExistingInteraction(cassette,
-                            advancedSettings.matchRules);
+                    HttpInteraction recording =
+                            this.converter.loadExistingInteraction(cassette, advancedSettings.matchRules);
                     assert recording != null;
                     simulateDelay(recording, advancedSettings);
                     return HttpResponse.BodySubscribers.replacing(recording.getResponse().getBody());

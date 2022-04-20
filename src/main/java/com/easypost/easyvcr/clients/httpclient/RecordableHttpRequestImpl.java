@@ -7,6 +7,8 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.ProxySelector;
 import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.security.AccessControlContext;
 import java.security.AccessController;
@@ -16,35 +18,27 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
-import java.net.http.HttpClient;
-import java.net.http.HttpHeaders;
 
 public class RecordableHttpRequestImpl extends RecordableHttpRequest implements RecordableWebSocketRequest {
 
-    private final HttpHeaders userHeaders;
-    private final RecordableHttpHeadersBuilder systemHeadersBuilder;
-    private final URI uri;
-    private volatile Proxy proxy; // ensure safe publishing
-    private final InetSocketAddress authority; // only used when URI not specified
-    private final String method;
+    /**
+     * The value of the User-Agent header for all requests sent by the client.
+     */
+    public static final String USER_AGENT = userAgent();
     final HttpRequest.BodyPublisher requestPublisher;
     final boolean secure;
     final boolean expectContinue;
-    private volatile boolean isWebSocket;
-    @SuppressWarnings("removal")
-    private volatile AccessControlContext acc;
+    private final HttpHeaders userHeaders;
+    private final RecordableHttpHeadersBuilder systemHeadersBuilder;
+    private final URI uri;
+    private final InetSocketAddress authority; // only used when URI not specified
+    private final String method;
     private final Duration timeout;  // may be null
     private final Optional<HttpClient.Version> version;
-
-    private static String userAgent() {
-        PrivilegedAction<String> pa = () -> System.getProperty("java.version");
-        @SuppressWarnings("removal")
-        String version = AccessController.doPrivileged(pa);
-        return "Java-http-client/" + version;
-    }
-
-    /** The value of the User-Agent header for all requests sent by the client. */
-    public static final String USER_AGENT = userAgent();
+    private volatile Proxy proxy; // ensure safe publishing
+    private volatile boolean isWebSocket;
+    @SuppressWarnings ("removal")
+    private volatile AccessControlContext acc;
 
     /**
      * Creates an HttpRequestImpl from the given builder.
@@ -70,14 +64,11 @@ public class RecordableHttpRequestImpl extends RecordableHttpRequest implements 
      */
     public RecordableHttpRequestImpl(RecordableHttpRequest request, ProxySelector ps) {
         String method = request.method();
-        if (method != null && !Utils.isValidName(method))
-            throw new IllegalArgumentException("illegal method \""
-                    + method.replace("\n","\\n")
-                    .replace("\r", "\\r")
-                    .replace("\t", "\\t")
-                    + "\"");
-        URI requestURI = Objects.requireNonNull(request.uri(),
-                "uri must be non null");
+        if (method != null && !Utils.isValidName(method)) {
+            throw new IllegalArgumentException(
+                    "illegal method \"" + method.replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t") + "\"");
+        }
+        URI requestURI = Objects.requireNonNull(request.uri(), "uri must be non null");
         Duration timeout = request.timeout().orElse(null);
         this.method = method == null ? "GET" : method;
         this.userHeaders = HttpHeaders.of(request.headers().map(), Utils.VALIDATE_USER_HEADER);
@@ -85,7 +76,7 @@ public class RecordableHttpRequestImpl extends RecordableHttpRequest implements 
             // all cases exception WebSocket should have a new system headers
             this.isWebSocket = ((RecordableHttpRequestImpl) request).isWebSocket;
             if (isWebSocket) {
-                this.systemHeadersBuilder = ((RecordableHttpRequestImpl)request).systemHeadersBuilder;
+                this.systemHeadersBuilder = ((RecordableHttpRequestImpl) request).systemHeadersBuilder;
             } else {
                 this.systemHeadersBuilder = new RecordableHttpHeadersBuilder();
             }
@@ -102,10 +93,11 @@ public class RecordableHttpRequestImpl extends RecordableHttpRequest implements 
             // WebSocket determines and sets the proxy itself
             this.proxy = ((RecordableHttpRequestImpl) request).proxy;
         } else {
-            if (ps != null)
+            if (ps != null) {
                 this.proxy = retrieveProxy(ps, uri);
-            else
+            } else {
                 this.proxy = null;
+            }
         }
         this.expectContinue = request.expectContinue();
         this.secure = uri.getScheme().toLowerCase(Locale.US).equals("https");
@@ -115,42 +107,13 @@ public class RecordableHttpRequestImpl extends RecordableHttpRequest implements 
         this.authority = null;
     }
 
-    private static void checkTimeout(Duration duration) {
-        if (duration != null) {
-            if (duration.isNegative() || Duration.ZERO.equals(duration))
-                throw new IllegalArgumentException("Invalid duration: " + duration);
-        }
-    }
-
-    /** Returns a new instance suitable for redirection. */
-    public static RecordableHttpRequestImpl newInstanceForRedirection(URI uri,
-                                                                      String method,
-                                                                      RecordableHttpRequestImpl other,
-                                                                      boolean mayHaveBody) {
-        return new RecordableHttpRequestImpl(uri, method, other, mayHaveBody);
-    }
-
-    /** Returns a new instance suitable for authentication. */
-    public static RecordableHttpRequestImpl newInstanceForAuthentication(
-            RecordableHttpRequestImpl other) {
-        RecordableHttpRequestImpl
-                request = new RecordableHttpRequestImpl(other.uri(), other.method(), other, true);
-        if (request.isWebSocket()) {
-            Utils.setWebSocketUpgradeHeaders(request);
-        }
-        return request;
-    }
-
     /**
      * Creates a RecordableHttpRequestImpl using fields of an existing request impl.
      * The newly created RecordableHttpRequestImpl does not copy the system headers.
      */
-    private RecordableHttpRequestImpl(URI uri,
-                                      String method,
-                                      RecordableHttpRequestImpl other,
-                                      boolean mayHaveBody) {
+    private RecordableHttpRequestImpl(URI uri, String method, RecordableHttpRequestImpl other, boolean mayHaveBody) {
         assert method == null || Utils.isValidName(method);
-        this.method = method == null? "GET" : method;
+        this.method = method == null ? "GET" : method;
         this.userHeaders = other.userHeaders;
         this.isWebSocket = other.isWebSocket;
         this.systemHeadersBuilder = new RecordableHttpHeadersBuilder();
@@ -168,14 +131,6 @@ public class RecordableHttpRequestImpl extends RecordableHttpRequest implements 
         this.authority = null;
     }
 
-    private HttpRequest.BodyPublisher publisher(RecordableHttpRequestImpl other) {
-        HttpRequest.BodyPublisher res = other.requestPublisher;
-        if (!Objects.equals(method, other.method)) {
-            res = null;
-        }
-        return res;
-    }
-
     /* used for creating CONNECT requests  */
     RecordableHttpRequestImpl(String method, InetSocketAddress authority, Utils.ProxyHeaders headers) {
         // TODO: isWebSocket flag is not specified, but the assumption is that
@@ -186,8 +141,8 @@ public class RecordableHttpRequestImpl extends RecordableHttpRequest implements 
         this.systemHeadersBuilder = new RecordableHttpHeadersBuilder();
         this.systemHeadersBuilder.map().putAll(headers.systemHeaders().map());
         this.userHeaders = headers.userHeaders();
-        this.uri = URI.create("socket://" + authority.getHostString() + ":"
-                + Integer.toString(authority.getPort()) + "/");
+        this.uri =
+                URI.create("socket://" + authority.getHostString() + ":" + authority.getPort() + "/");
         this.proxy = null;
         this.requestPublisher = null;
         this.authority = authority;
@@ -203,34 +158,13 @@ public class RecordableHttpRequestImpl extends RecordableHttpRequest implements 
         this.version = Optional.of(HttpClient.Version.HTTP_1_1);
     }
 
-    final boolean isConnect() {
-        return "CONNECT".equalsIgnoreCase(method);
-    }
-
-    /**
-     * Creates a RecordableHttpRequestImpl from the given set of Headers and the associated
-     * "parent" request. Fields not taken from the headers are taken from the
-     * parent.
-     */
-    static RecordableHttpRequestImpl createPushRequest(RecordableHttpRequestImpl parent,
-                                                       HttpHeaders headers)
-            throws IOException
-    {
-        return new RecordableHttpRequestImpl(parent, headers);
-    }
-
     // only used for push requests
-    private RecordableHttpRequestImpl(RecordableHttpRequestImpl parent, HttpHeaders headers)
-            throws IOException
-    {
-        this.method = headers.firstValue(":method")
-                .orElseThrow(() -> new IOException("No method in Push Promise"));
-        String path = headers.firstValue(":path")
-                .orElseThrow(() -> new IOException("No path in Push Promise"));
-        String scheme = headers.firstValue(":scheme")
-                .orElseThrow(() -> new IOException("No scheme in Push Promise"));
-        String authority = headers.firstValue(":authority")
-                .orElseThrow(() -> new IOException("No authority in Push Promise"));
+    private RecordableHttpRequestImpl(RecordableHttpRequestImpl parent, HttpHeaders headers) throws IOException {
+        this.method = headers.firstValue(":method").orElseThrow(() -> new IOException("No method in Push Promise"));
+        String path = headers.firstValue(":path").orElseThrow(() -> new IOException("No path in Push Promise"));
+        String scheme = headers.firstValue(":scheme").orElseThrow(() -> new IOException("No scheme in Push Promise"));
+        String authority =
+                headers.firstValue(":authority").orElseThrow(() -> new IOException("No authority in Push Promise"));
         StringBuilder sb = new StringBuilder();
         sb.append(scheme).append("://").append(authority).append(path);
         this.uri = URI.create(sb.toString());
@@ -246,6 +180,77 @@ public class RecordableHttpRequestImpl extends RecordableHttpRequest implements 
         this.authority = null;
     }
 
+    private static String userAgent() {
+        PrivilegedAction<String> pa = () -> System.getProperty("java.version");
+        @SuppressWarnings ("removal") String version = AccessController.doPrivileged(pa);
+        return "Java-http-client/" + version;
+    }
+
+    private static void checkTimeout(Duration duration) {
+        if (duration != null) {
+            if (duration.isNegative() || Duration.ZERO.equals(duration)) {
+                throw new IllegalArgumentException("Invalid duration: " + duration);
+            }
+        }
+    }
+
+    /**
+     * Returns a new instance suitable for redirection.
+     */
+    public static RecordableHttpRequestImpl newInstanceForRedirection(URI uri, String method,
+                                                                      RecordableHttpRequestImpl other,
+                                                                      boolean mayHaveBody) {
+        return new RecordableHttpRequestImpl(uri, method, other, mayHaveBody);
+    }
+
+    /**
+     * Returns a new instance suitable for authentication.
+     */
+    public static RecordableHttpRequestImpl newInstanceForAuthentication(RecordableHttpRequestImpl other) {
+        RecordableHttpRequestImpl request = new RecordableHttpRequestImpl(other.uri(), other.method(), other, true);
+        if (request.isWebSocket()) {
+            Utils.setWebSocketUpgradeHeaders(request);
+        }
+        return request;
+    }
+
+    /**
+     * Creates a RecordableHttpRequestImpl from the given set of Headers and the associated
+     * "parent" request. Fields not taken from the headers are taken from the
+     * parent.
+     */
+    static RecordableHttpRequestImpl createPushRequest(RecordableHttpRequestImpl parent, HttpHeaders headers)
+            throws IOException {
+        return new RecordableHttpRequestImpl(parent, headers);
+    }
+
+    /**
+     * Retrieves the proxy, from the given ProxySelector, if there is one.
+     */
+    private static Proxy retrieveProxy(ProxySelector ps, URI uri) {
+        Proxy proxy = null;
+        List<Proxy> pl = ps.select(uri);
+        if (!pl.isEmpty()) {
+            Proxy p = pl.get(0);
+            if (p.type() == Proxy.Type.HTTP) {
+                proxy = p;
+            }
+        }
+        return proxy;
+    }
+
+    private HttpRequest.BodyPublisher publisher(RecordableHttpRequestImpl other) {
+        HttpRequest.BodyPublisher res = other.requestPublisher;
+        if (!Objects.equals(method, other.method)) {
+            res = null;
+        }
+        return res;
+    }
+
+    final boolean isConnect() {
+        return "CONNECT".equalsIgnoreCase(method);
+    }
+
     @Override
     public String toString() {
         return (uri == null ? "" : uri.toString()) + " " + method;
@@ -256,32 +261,19 @@ public class RecordableHttpRequestImpl extends RecordableHttpRequest implements 
         return userHeaders;
     }
 
-    InetSocketAddress authority() { return authority; }
+    InetSocketAddress authority() {return authority;}
 
     @Override
-    public boolean expectContinue() { return expectContinue; }
-
-    /** Retrieves the proxy, from the given ProxySelector, if there is one. */
-    private static Proxy retrieveProxy(ProxySelector ps, URI uri) {
-        Proxy proxy = null;
-        List<Proxy> pl = ps.select(uri);
-        if (!pl.isEmpty()) {
-            Proxy p = pl.get(0);
-            if (p.type() == Proxy.Type.HTTP)
-                proxy = p;
-        }
-        return proxy;
-    }
+    public boolean expectContinue() {return expectContinue;}
 
     InetSocketAddress proxy() {
-        if (proxy == null || proxy.type() != Proxy.Type.HTTP
-                || method.equalsIgnoreCase("CONNECT")) {
+        if (proxy == null || proxy.type() != Proxy.Type.HTTP || method.equalsIgnoreCase("CONNECT")) {
             return null;
         }
-        return (InetSocketAddress)proxy.address();
+        return (InetSocketAddress) proxy.address();
     }
 
-    boolean secure() { return secure; }
+    boolean secure() {return secure;}
 
     @Override
     public void setProxy(Proxy proxy) {
@@ -300,8 +292,7 @@ public class RecordableHttpRequestImpl extends RecordableHttpRequest implements 
 
     @Override
     public Optional<HttpRequest.BodyPublisher> bodyPublisher() {
-        return requestPublisher == null ? Optional.empty()
-                : Optional.of(requestPublisher);
+        return requestPublisher == null ? Optional.empty() : Optional.of(requestPublisher);
     }
 
     /**
@@ -309,22 +300,22 @@ public class RecordableHttpRequestImpl extends RecordableHttpRequest implements 
      * the default method for any request is "GET".
      */
     @Override
-    public String method() { return method; }
+    public String method() {return method;}
 
     @Override
-    public URI uri() { return uri; }
+    public URI uri() {return uri;}
 
     @Override
     public Optional<Duration> timeout() {
         return timeout == null ? Optional.empty() : Optional.of(timeout);
     }
 
-    HttpHeaders getUserHeaders() { return userHeaders; }
+    HttpHeaders getUserHeaders() {return userHeaders;}
 
-    RecordableHttpHeadersBuilder getSystemHeadersBuilder() { return systemHeadersBuilder; }
+    RecordableHttpHeadersBuilder getSystemHeadersBuilder() {return systemHeadersBuilder;}
 
     @Override
-    public Optional<HttpClient.Version> version() { return version; }
+    public Optional<HttpClient.Version> version() {return version;}
 
     void addSystemHeader(String name, String value) {
         systemHeadersBuilder.addHeader(name, value);
@@ -335,7 +326,7 @@ public class RecordableHttpRequestImpl extends RecordableHttpRequest implements 
         systemHeadersBuilder.setHeader(name, value);
     }
 
-    @SuppressWarnings("removal")
+    @SuppressWarnings ("removal")
     InetSocketAddress getAddress() {
         URI uri = uri();
         if (uri == null) {

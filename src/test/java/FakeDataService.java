@@ -6,9 +6,6 @@ import com.easypost.easyvcr.clients.httpurlconnection.RecordableHttpsURLConnecti
 import com.easypost.easyvcr.internalutilities.json.Serialization;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.StringEntity;
 
 import java.net.URI;
 import java.net.http.HttpResponse;
@@ -19,6 +16,13 @@ public class FakeDataService {
 
     private final static String GET_POSTS_URL = "https://jsonplaceholder.typicode.com/posts";
     private final static String GET_POST_URL = "https://jsonplaceholder.typicode.com/posts";
+
+    private interface FakeDataServiceBaseInterface {
+
+        Post[] getPosts() throws Exception;
+
+        Post getPost(int id) throws Exception;
+    }
 
     public static class Post {
         public int userId;
@@ -203,12 +207,5 @@ public class FakeDataService {
 
         public FakeDataServiceBase() {
         }
-    }
-
-    private interface FakeDataServiceBaseInterface {
-
-        public Post[] getPosts() throws Exception;
-
-        public Post getPost(int id) throws Exception;
     }
 }

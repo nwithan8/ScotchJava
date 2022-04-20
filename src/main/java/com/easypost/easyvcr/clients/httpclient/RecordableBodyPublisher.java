@@ -16,6 +16,6 @@ public class RecordableBodyPublisher implements HttpRequest.BodyPublisher {
     }
 
     protected HttpRequest.BodyPublisher toHttpBodyPublisher() {
-        return (HttpRequest.BodyPublisher) this;
+        return this;
     }
 }

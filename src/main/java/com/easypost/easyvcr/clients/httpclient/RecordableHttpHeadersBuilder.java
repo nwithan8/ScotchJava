@@ -7,7 +7,9 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.BiPredicate;
 
-/** A mutable builder for collecting and building HTTP headers. */
+/**
+ * A mutable builder for collecting and building HTTP headers.
+ */
 public class RecordableHttpHeadersBuilder {
 
     private final TreeMap<String, List<String>> headersMap;
@@ -26,8 +28,7 @@ public class RecordableHttpHeadersBuilder {
     }
 
     public void addHeader(String name, String value) {
-        headersMap.computeIfAbsent(name, k -> new ArrayList<>(1))
-                .add(value);
+        headersMap.computeIfAbsent(name, k -> new ArrayList<>(1)).add(value);
     }
 
     public void setHeader(String name, String value) {

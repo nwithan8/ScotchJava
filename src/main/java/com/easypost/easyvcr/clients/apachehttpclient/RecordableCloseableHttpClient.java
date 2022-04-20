@@ -56,23 +56,19 @@ public class RecordableCloseableHttpClient extends CloseableHttpClient {
         return httpResponse;
     }
 
-    private HttpInteraction loadExistingInteraction(HttpHost target, HttpRequest httpRequest,
-                                                    HttpContext context) throws VCRException {
+    private HttpInteraction loadExistingInteraction(HttpHost target, HttpRequest httpRequest, HttpContext context)
+            throws VCRException {
         Request request = converter.createRequest(httpRequest, advancedSettings.censors);
 
         HttpInteraction matchingInteraction =
                 converter.findMatchingInteraction(this.cassette, request, advancedSettings.matchRules);
-
-        if (matchingInteraction == null) {
-            return null;
-        }
 
         return matchingInteraction;
     }
 
     @Override
     protected CloseableHttpResponse doExecute(HttpHost httpHost, HttpRequest httpRequest, HttpContext httpContext)
-            throws IOException, ClientProtocolException {
+            throws IOException {
         switch (mode) {
             case Record:
                 try {

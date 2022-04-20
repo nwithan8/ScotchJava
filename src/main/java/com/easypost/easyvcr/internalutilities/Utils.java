@@ -11,32 +11,31 @@ import java.util.function.BiPredicate;
 import static java.lang.String.format;
 
 public final class Utils {
-    private static final boolean[] tchar      = new boolean[256];
+    private static final boolean[] tchar = new boolean[256];
     private static final boolean[] fieldvchar = new boolean[256];
 
     private static final String HEADER_CONNECTION = "Connection";
-    private static final String HEADER_UPGRADE    = "Upgrade";
+    private static final String HEADER_UPGRADE = "Upgrade";
 
     private static final Set<String> DISALLOWED_HEADERS_SET = getDisallowedHeaders();
 
-    public static final BiPredicate<String, String>
-            ALLOWED_HEADERS = (header, unused) -> !DISALLOWED_HEADERS_SET.contains(header);
+    public static final BiPredicate<String, String> ALLOWED_HEADERS =
+            (header, unused) -> !DISALLOWED_HEADERS_SET.contains(header);
 
-    public static final BiPredicate<String, String> VALIDATE_USER_HEADER =
-            (name, value) -> {
-                assert name != null : "null header name";
-                assert value != null : "null header value";
-                if (!isValidName(name)) {
-                    throw newIAE("invalid header name: \"%s\"", name);
-                }
-                if (!ALLOWED_HEADERS.test(name, null)) {
-                    throw newIAE("restricted header name: \"%s\"", name);
-                }
-                if (!isValidValue(value)) {
-                    throw newIAE("invalid header value for %s: \"%s\"", name, value);
-                }
-                return true;
-            };
+    public static final BiPredicate<String, String> VALIDATE_USER_HEADER = (name, value) -> {
+        assert name != null : "null header name";
+        assert value != null : "null header value";
+        if (!isValidName(name)) {
+            throw newIAE("invalid header name: \"%s\"", name);
+        }
+        if (!ALLOWED_HEADERS.test(name, null)) {
+            throw newIAE("restricted header name: \"%s\"", name);
+        }
+        if (!isValidValue(value)) {
+            throw newIAE("invalid header value for %s: \"%s\"", name, value);
+        }
+        return true;
+    };
 
     private static Set<String> getDisallowedHeaders() {
         Set<String> headers = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);

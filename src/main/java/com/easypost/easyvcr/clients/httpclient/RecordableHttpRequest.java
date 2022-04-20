@@ -20,7 +20,9 @@ public abstract class RecordableHttpRequest extends HttpRequest {
 
     public static RecordableHttpRequest.Builder newBuilder(URI uri, Cassette cassette, Mode mode,
                                                            AdvancedSettings advancedSettings) {
-        return new RecordableHttpRequestBuilderImpl(uri, cassette, mode, advancedSettings != null ? advancedSettings : new AdvancedSettings(), new HttpClientInteractionConverter());
+        return new RecordableHttpRequestBuilderImpl(uri, cassette, mode,
+                advancedSettings != null ? advancedSettings : new AdvancedSettings(),
+                new HttpClientInteractionConverter());
     }
 
     public RecordableBodyHandler getBodyHandler() {
@@ -37,7 +39,7 @@ public abstract class RecordableHttpRequest extends HttpRequest {
          * @throws IllegalArgumentException if the {@code URI} scheme is not
          *                                  supported
          */
-        public RecordableHttpRequest.Builder uri(URI uri);
+        RecordableHttpRequest.Builder uri(URI uri);
 
         /**
          * Requests the server to acknowledge the request before sending the
@@ -50,7 +52,7 @@ public abstract class RecordableHttpRequest extends HttpRequest {
          * @param enable {@code true} if Expect continue to be sent
          * @return this builder
          */
-        public RecordableHttpRequest.Builder expectContinue(boolean enable);
+        RecordableHttpRequest.Builder expectContinue(boolean enable);
 
         /**
          * Sets the preferred {@link HttpClient.Version} for this request.
@@ -63,7 +65,7 @@ public abstract class RecordableHttpRequest extends HttpRequest {
          * @param version the HTTP protocol version requested
          * @return this builder
          */
-        public RecordableHttpRequest.Builder version(HttpClient.Version version);
+        RecordableHttpRequest.Builder version(HttpClient.Version version);
 
         /**
          * Adds the given name value pair to the set of headers for this request.
@@ -84,7 +86,7 @@ public abstract class RecordableHttpRequest extends HttpRequest {
          * {@code IllegalArgumentException} if such a header is passed
          * to the builder.
          */
-        public RecordableHttpRequest.Builder header(String name, String value);
+        RecordableHttpRequest.Builder header(String name, String value);
 
         /**
          * Adds the given name value pairs to the set of headers for this
@@ -102,7 +104,7 @@ public abstract class RecordableHttpRequest extends HttpRequest {
          *                                  {@linkplain #header(String, String) restricted} by the
          *                                  implementation.
          */
-        public RecordableHttpRequest.Builder headers(String... headers);
+        RecordableHttpRequest.Builder headers(String... headers);
 
         /**
          * Sets a timeout for this request. If the response is not received
@@ -119,7 +121,7 @@ public abstract class RecordableHttpRequest extends HttpRequest {
          * @return this builder
          * @throws IllegalArgumentException if the duration is non-positive
          */
-        public abstract RecordableHttpRequest.Builder timeout(Duration duration);
+        RecordableHttpRequest.Builder timeout(Duration duration);
 
         /**
          * Sets the given name value pair to the set of headers for this
@@ -134,7 +136,7 @@ public abstract class RecordableHttpRequest extends HttpRequest {
          *                                  {@linkplain #header(String, String) restricted} by the
          *                                  implementation.
          */
-        public RecordableHttpRequest.Builder setHeader(String name, String value);
+        RecordableHttpRequest.Builder setHeader(String name, String value);
 
         /**
          * Sets the request method of this builder to GET.
@@ -142,7 +144,7 @@ public abstract class RecordableHttpRequest extends HttpRequest {
          *
          * @return this builder
          */
-        public RecordableHttpRequest.Builder GET();
+        RecordableHttpRequest.Builder GET();
 
         /**
          * Sets the request method of this builder to POST and sets its
@@ -151,7 +153,7 @@ public abstract class RecordableHttpRequest extends HttpRequest {
          * @param bodyPublisher the body publisher
          * @return this builder
          */
-        public RecordableHttpRequest.Builder POST(RecordableHttpRequest.BodyPublisher bodyPublisher);
+        RecordableHttpRequest.Builder POST(RecordableHttpRequest.BodyPublisher bodyPublisher);
 
         /**
          * Sets the request method of this builder to PUT and sets its
@@ -160,14 +162,14 @@ public abstract class RecordableHttpRequest extends HttpRequest {
          * @param bodyPublisher the body publisher
          * @return this builder
          */
-        public RecordableHttpRequest.Builder PUT(RecordableHttpRequest.BodyPublisher bodyPublisher);
+        RecordableHttpRequest.Builder PUT(RecordableHttpRequest.BodyPublisher bodyPublisher);
 
         /**
          * Sets the request method of this builder to DELETE.
          *
          * @return this builder
          */
-        public RecordableHttpRequest.Builder DELETE();
+        RecordableHttpRequest.Builder DELETE();
 
         /**
          * Sets the request method and request body of this builder to the
@@ -186,7 +188,7 @@ public abstract class RecordableHttpRequest extends HttpRequest {
          * implementation specific. For example, some implementations may choose
          * to restrict the {@code CONNECT} method.
          */
-        public RecordableHttpRequest.Builder method(String method, HttpRequest.BodyPublisher bodyPublisher);
+        RecordableHttpRequest.Builder method(String method, HttpRequest.BodyPublisher bodyPublisher);
 
         /**
          * Builds and returns an {@link HttpRequest}.
@@ -194,7 +196,7 @@ public abstract class RecordableHttpRequest extends HttpRequest {
          * @return a new {@code HttpRequest}
          * @throws IllegalStateException if a URI has not been set
          */
-        public RecordableHttpRequest build();
+        RecordableHttpRequest build();
 
         /**
          * Returns an exact duplicate copy of this {@code Builder} based on
@@ -203,7 +205,7 @@ public abstract class RecordableHttpRequest extends HttpRequest {
          *
          * @return an exact copy of this builder
          */
-        public RecordableHttpRequest.Builder copy();
+        RecordableHttpRequest.Builder copy();
     }
 
     public static class BodyPublisher {

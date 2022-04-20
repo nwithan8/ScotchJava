@@ -39,8 +39,7 @@ public class Tools {
     }
 
     public static Map<String, String> queryParametersToMap(URI uri) {
-        List<NameValuePair> receivedQueryDict =
-                URLEncodedUtils.parse(uri, StandardCharsets.UTF_8);
+        List<NameValuePair> receivedQueryDict = URLEncodedUtils.parse(uri, StandardCharsets.UTF_8);
         if (receivedQueryDict == null || receivedQueryDict.size() == 0) {
             return Collections.emptyMap();
         }
@@ -112,7 +111,8 @@ public class Tools {
         return nvpList;
     }
 
-    public static void simulateDelay(HttpInteraction interaction, AdvancedSettings advancedSettings) throws InterruptedException {
+    public static void simulateDelay(HttpInteraction interaction, AdvancedSettings advancedSettings)
+            throws InterruptedException {
         if (advancedSettings.simulateDelay) {
             Thread.sleep(interaction.getDuration());
         } else {

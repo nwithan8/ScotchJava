@@ -3,12 +3,10 @@ package com.easypost.easyvcr.requestelements;
 import org.apache.http.Header;
 import org.apache.http.HeaderIterator;
 import org.apache.http.HttpEntity;
-import org.apache.http.NameValuePair;
 import org.apache.http.ProtocolVersion;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.message.BasicHeader;
-import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.params.HttpParams;
 
 import javax.net.ssl.SSLSession;
@@ -38,7 +36,7 @@ public class Response extends HttpElement {
     private Status status;
 
     private String errors;
-    
+
     private URI uri;
 
     public HttpResponse<String> toHttpResponse(HttpRequest associatedRequest) {
@@ -131,16 +129,6 @@ public class Response extends HttpElement {
             }
 
             @Override
-            public void setStatusCode(int i) throws IllegalStateException {
-                // not implemented
-            }
-
-            @Override
-            public void setReasonPhrase(String s) throws IllegalStateException {
-                // not implemented
-            }
-
-            @Override
             public HttpEntity getEntity() {
                 return new HttpEntity() {
                     @Override
@@ -190,10 +178,16 @@ public class Response extends HttpElement {
                         // not implemented
                     }
                 };
+            }            @Override
+            public void setStatusCode(int i) throws IllegalStateException {
+                // not implemented
             }
 
             @Override
             public void setEntity(HttpEntity httpEntity) {
+                // not implemented
+            }            @Override
+            public void setReasonPhrase(String s) throws IllegalStateException {
                 // not implemented
             }
 
@@ -220,15 +214,15 @@ public class Response extends HttpElement {
 
             @Override
             public Header[] getHeaders(String s) {
-               List<String> matchingHeaderValues = Response.this.getHeaders().get(s);
-               if (matchingHeaderValues == null) {
-                   return null;
-               }
-               Header[] headers = new Header[matchingHeaderValues.size()];
-               for (int i = 0; i < matchingHeaderValues.size(); i++) {
-                   headers[i] = new BasicHeader(s, matchingHeaderValues.get(i));
-               }
-               return headers;
+                List<String> matchingHeaderValues = Response.this.getHeaders().get(s);
+                if (matchingHeaderValues == null) {
+                    return null;
+                }
+                Header[] headers = new Header[matchingHeaderValues.size()];
+                for (int i = 0; i < matchingHeaderValues.size(); i++) {
+                    headers[i] = new BasicHeader(s, matchingHeaderValues.get(i));
+                }
+                return headers;
             }
 
             @Override
@@ -321,6 +315,10 @@ public class Response extends HttpElement {
             public void setParams(HttpParams httpParams) {
                 // not implemented
             }
+
+
+
+
         };
     }
 
@@ -328,7 +326,7 @@ public class Response extends HttpElement {
         return this.body;
     }
 
-    public  void setBody(String body) {
+    public void setBody(String body) {
         this.body = body;
     }
 
@@ -336,15 +334,15 @@ public class Response extends HttpElement {
         return this.httpVersion;
     }
 
-    public  void setHttpVersion(HttpClient.Version version) {
+    public void setHttpVersion(HttpClient.Version version) {
         this.httpVersion = new HttpVersion(version);
     }
 
-    public  void setHttpVersion(ProtocolVersion version) {
+    public void setHttpVersion(ProtocolVersion version) {
         this.httpVersion = new HttpVersion(version);
     }
 
-    public  void setHttpVersion(String version) {
+    public void setHttpVersion(String version) {
         this.httpVersion = new HttpVersion(version);
     }
 
@@ -352,7 +350,7 @@ public class Response extends HttpElement {
         return this.headers;
     }
 
-    public  void setHeaders(Map<String, List<String>> headers) {
+    public void setHeaders(Map<String, List<String>> headers) {
         this.headers = headers;
     }
 
@@ -360,7 +358,7 @@ public class Response extends HttpElement {
         return this.status;
     }
 
-    public  void setStatus(Status status) {
+    public void setStatus(Status status) {
         this.status = status;
     }
 
@@ -368,7 +366,7 @@ public class Response extends HttpElement {
         return this.errors;
     }
 
-    public  void setErrors(String errors) {
+    public void setErrors(String errors) {
         this.errors = errors;
     }
 
@@ -376,7 +374,7 @@ public class Response extends HttpElement {
         return this.uri;
     }
 
-    public  void setUri(URI uri) {
+    public void setUri(URI uri) {
         this.uri = uri;
     }
 
@@ -384,7 +382,7 @@ public class Response extends HttpElement {
         return this.uri.toString();
     }
 
-    public  void setUriString(String uriString) {
+    public void setUriString(String uriString) {
         this.uri = URI.create(uriString);
     }
 }

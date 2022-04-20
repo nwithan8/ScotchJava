@@ -23,8 +23,8 @@ import java.util.Map;
 
 public class HttpClientInteractionConverter extends BaseInteractionConverter {
 
-    private Request currentRequest;
-    private Response currentResponse;
+    private final Request currentRequest;
+    private final Response currentResponse;
 
     private long duration;
 
@@ -89,9 +89,6 @@ public class HttpClientInteractionConverter extends BaseInteractionConverter {
 
     public HttpInteraction loadExistingInteraction(Cassette cassette, MatchRules matchRules) throws VCRException {
         HttpInteraction matchingInteraction = findMatchingInteraction(cassette, currentRequest, matchRules);
-        if (matchingInteraction == null) {
-            return null;
-        }
         return matchingInteraction;
     }
 

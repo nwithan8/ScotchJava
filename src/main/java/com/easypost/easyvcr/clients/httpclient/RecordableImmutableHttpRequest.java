@@ -32,7 +32,8 @@ public final class RecordableImmutableHttpRequest extends RecordableHttpRequest 
     /**
      * Creates an ImmutableHttpRequest from the given builder.
      */
-    RecordableImmutableHttpRequest(RecordableHttpRequestBuilderImpl builder, Cassette cassette, Mode mode, AdvancedSettings advancedSettings, HttpClientInteractionConverter converter) {
+    RecordableImmutableHttpRequest(RecordableHttpRequestBuilderImpl builder, Cassette cassette, Mode mode,
+                                   AdvancedSettings advancedSettings, HttpClientInteractionConverter converter) {
         this.method = Objects.requireNonNull(builder.method());
         this.uri = Objects.requireNonNull(builder.uri());
         this.headers = HttpHeaders.of(builder.headersBuilder().map(), Utils.ALLOWED_HEADERS);

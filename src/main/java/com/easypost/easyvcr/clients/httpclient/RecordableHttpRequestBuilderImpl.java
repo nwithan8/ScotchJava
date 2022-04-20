@@ -5,18 +5,14 @@ import com.easypost.easyvcr.Cassette;
 import com.easypost.easyvcr.Mode;
 import com.easypost.easyvcr.interactionconverters.HttpClientInteractionConverter;
 import com.easypost.easyvcr.internalutilities.Utils;
-import com.easypost.easyvcr.requestelements.Request;
-import com.easypost.easyvcr.requestelements.Response;
-import com.easypost.easyvcr.requestelements.Status;
 
 import java.net.URI;
+import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.net.http.HttpRequest.BodyPublisher;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Optional;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest.BodyPublisher;
 
 import static java.util.Objects.requireNonNull;
 
@@ -35,7 +31,8 @@ public class RecordableHttpRequestBuilderImpl implements RecordableHttpRequest.B
     private volatile Optional<HttpClient.Version> version;
     private Duration duration;
 
-    public RecordableHttpRequestBuilderImpl(URI uri, Cassette cassette, Mode mode, AdvancedSettings advancedSettings, HttpClientInteractionConverter converter) {
+    public RecordableHttpRequestBuilderImpl(URI uri, Cassette cassette, Mode mode, AdvancedSettings advancedSettings,
+                                            HttpClientInteractionConverter converter) {
         requireNonNull(uri, "uri must be non-null");
         checkURI(uri);
         this.uri = uri;
@@ -47,14 +44,6 @@ public class RecordableHttpRequestBuilderImpl implements RecordableHttpRequest.B
         this.mode = mode;
         this.advancedSettings = advancedSettings;
         this.converter = converter;
-    }
-
-    @Override
-    public RecordableHttpRequestBuilderImpl uri(URI uri) {
-        requireNonNull(uri, "uri must be non-null");
-        checkURI(uri);
-        this.uri = uri;
-        return this;
     }
 
     static void checkURI(URI uri) {
@@ -72,9 +61,18 @@ public class RecordableHttpRequestBuilderImpl implements RecordableHttpRequest.B
     }
 
     @Override
+    public RecordableHttpRequestBuilderImpl uri(URI uri) {
+        requireNonNull(uri, "uri must be non-null");
+        checkURI(uri);
+        this.uri = uri;
+        return this;
+    }
+
+    @Override
     public RecordableHttpRequestBuilderImpl copy() {
         RecordableHttpRequestBuilderImpl b =
-                new RecordableHttpRequestBuilderImpl(this.uri, this.cassette, this.mode, this.advancedSettings, this.converter);
+                new RecordableHttpRequestBuilderImpl(this.uri, this.cassette, this.mode, this.advancedSettings,
+                        this.converter);
         b.headersBuilder = this.headersBuilder.structuralCopy();
         b.method = this.method;
         b.expectContinue = this.expectContinue;
