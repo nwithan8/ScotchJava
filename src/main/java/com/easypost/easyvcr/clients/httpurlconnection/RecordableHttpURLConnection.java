@@ -203,9 +203,10 @@ public class RecordableHttpURLConnection extends HttpURLConnection {
 
     @Override
     public void connect() throws IOException {
-        this.connection.connect();
         try {
             buildCache(); // can't set anything after connecting, so might as well build the cache now
+            // will establish connection as a result of caching, so need to disconnect afterwards
+            this.connection.disconnect();
         } catch (VCRException e) {
             throw new RuntimeException(e);
         }

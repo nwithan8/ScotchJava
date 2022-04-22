@@ -1,27 +1,24 @@
 import com.easypost.easyvcr.VCR;
-import com.easypost.easyvcr.clients.apachehttpclient.RecordableCloseableHttpClient;
-import com.easypost.easyvcr.clients.httpclient.RecordableHttpRequest;
 import com.easypost.easyvcr.clients.httpurlconnection.RecordableHttpURLConnection;
 import com.easypost.easyvcr.clients.httpurlconnection.RecordableHttpsURLConnection;
 import com.easypost.easyvcr.internalutilities.json.Serialization;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-
-import java.net.URI;
-import java.net.http.HttpResponse;
 
 import static com.easypost.easyvcr.internalutilities.Tools.readFromInputStream;
 
 public class FakeDataService {
 
-    private final static String GET_POSTS_URL = "https://jsonplaceholder.typicode.com/posts";
-    private final static String GET_POST_URL = "https://jsonplaceholder.typicode.com/posts";
+    public final static String GET_POSTS_URL = "https://jsonplaceholder.typicode.com/posts";
+    public final static String GET_POST_URL = "https://jsonplaceholder.typicode.com/posts";
 
     private interface FakeDataServiceBaseInterface {
 
         Post[] getPosts() throws Exception;
 
         Post getPost(int id) throws Exception;
+
+        Object getPostsRawResponse() throws Exception;
+
+        Object getPostRawResponse(int id) throws Exception;
     }
 
     public static class Post {
@@ -35,92 +32,6 @@ public class FakeDataService {
             this.id = id;
             this.title = title;
             this.body = body;
-        }
-    }
-
-    public static class ApacheHttpClient extends FakeDataServiceBase implements FakeDataServiceBaseInterface {
-        protected RecordableCloseableHttpClient client;
-
-        public ApacheHttpClient(RecordableCloseableHttpClient client) {
-            this.client = client;
-        }
-
-        public ApacheHttpClient(VCR vcr) {
-            this.vcr = vcr;
-        }
-
-        public RecordableCloseableHttpClient getClient() throws Exception {
-            if (client != null) {
-                return client;
-            } else if (vcr != null) {
-                return vcr.getApacheHttpClient();
-            }
-            throw new Exception("No VCR or client has been set.");
-        }
-
-        @Override
-        public Post[] getPosts() throws Exception {
-            RecordableCloseableHttpClient client = getClient();
-            HttpGet post = new HttpGet(GET_POSTS_URL);
-            CloseableHttpResponse response = client.execute(post);
-            String json = readFromInputStream(response.getEntity().getContent());
-
-            return Serialization.convertJsonToObject(json, Post[].class);
-        }
-
-        @Override
-        public Post getPost(int id) throws Exception {
-            RecordableCloseableHttpClient client = getClient();
-            HttpGet post = new HttpGet(GET_POSTS_URL + "/" + id);
-            CloseableHttpResponse response = client.execute(post);
-            String json = readFromInputStream(response.getEntity().getContent());
-
-            return Serialization.convertJsonToObject(json, Post.class);
-        }
-    }
-
-    public static class HttpClient extends FakeDataServiceBase implements FakeDataServiceBaseInterface {
-        protected RecordableHttpRequest.Builder builder;
-
-        public HttpClient(RecordableHttpRequest.Builder builder) {
-            this.builder = builder;
-        }
-
-        public HttpClient(VCR vcr) {
-            this.vcr = vcr;
-        }
-
-        public RecordableHttpRequest.Builder getBuilder(String url) throws Exception {
-            if (builder != null) {
-                return builder;
-            } else if (vcr != null) {
-                return vcr.getHttpClientBuilder(new URI(url));
-            }
-            throw new Exception("No VCR or client has been set.");
-        }
-
-        @Override
-        public Post[] getPosts() throws Exception {
-            RecordableHttpRequest.Builder builder = getBuilder(GET_POSTS_URL);
-            RecordableHttpRequest request = builder.GET().build();
-
-            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            String json = response.body();
-
-            return Serialization.convertJsonToObject(json, Post[].class);
-        }
-
-        @Override
-        public Post getPost(int id) throws Exception {
-            RecordableHttpRequest.Builder builder = getBuilder(GET_POST_URL + "/" + id);
-            RecordableHttpRequest request = builder.GET().build();
-
-            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            String json = response.body();
-
-            return Serialization.convertJsonToObject(json, Post.class);
         }
     }
 
@@ -146,20 +57,32 @@ public class FakeDataService {
 
         @Override
         public Post[] getPosts() throws Exception {
-            RecordableHttpURLConnection client = getClient(GET_POSTS_URL);
-            client.connect();
+            RecordableHttpURLConnection client = (RecordableHttpURLConnection) getPostsRawResponse();
             String json = readFromInputStream(client.getInputStream());
 
             return Serialization.convertJsonToObject(json, Post[].class);
         }
 
         @Override
-        public Post getPost(int id) throws Exception {
-            RecordableHttpURLConnection client = getClient(GET_POST_URL + "/" + id);
+        public Object getPostsRawResponse() throws Exception {
+            RecordableHttpURLConnection client = getClient(GET_POSTS_URL);
             client.connect();
+            return client;
+        }
+
+        @Override
+        public Post getPost(int id) throws Exception {
+            RecordableHttpURLConnection client = (RecordableHttpURLConnection) getPostRawResponse(id);
             String json = readFromInputStream(client.getInputStream());
 
             return Serialization.convertJsonToObject(json, Post.class);
+        }
+
+        @Override
+        public Object getPostRawResponse(int id) throws Exception {
+            RecordableHttpURLConnection client = getClient(GET_POST_URL + "/" + id);
+            client.connect();
+            return client;
         }
     }
 
@@ -185,20 +108,32 @@ public class FakeDataService {
 
         @Override
         public Post[] getPosts() throws Exception {
-            RecordableHttpsURLConnection client = getClient(GET_POSTS_URL);
-            client.connect();
+            RecordableHttpsURLConnection client = (RecordableHttpsURLConnection) getPostsRawResponse();
             String json = readFromInputStream(client.getInputStream());
 
             return Serialization.convertJsonToObject(json, Post[].class);
         }
 
         @Override
-        public Post getPost(int id) throws Exception {
-            RecordableHttpsURLConnection client = getClient(GET_POST_URL + "/" + id);
+        public Object getPostsRawResponse() throws Exception {
+            RecordableHttpsURLConnection client = getClient(GET_POSTS_URL);
             client.connect();
+            return client;
+        }
+
+        @Override
+        public Post getPost(int id) throws Exception {
+            RecordableHttpsURLConnection client = (RecordableHttpsURLConnection) getPostRawResponse(id);
             String json = readFromInputStream(client.getInputStream());
 
             return Serialization.convertJsonToObject(json, Post.class);
+        }
+
+        @Override
+        public Object getPostRawResponse(int id) throws Exception {
+            RecordableHttpsURLConnection client = getClient(GET_POST_URL + "/" + id);
+            client.connect();
+            return client;
         }
     }
 

@@ -34,13 +34,23 @@ public class TestUtils {
     public static RecordableHttpURLConnection getSimpleHttpURLConnection(String url, String cassetteName, Mode mode)
             throws IOException {
         Cassette cassette = getCassette(cassetteName);
-        return new RecordableURL(new URL(url), cassette, mode, null).openConnection();
+        return new RecordableURL(new URL(url), cassette, mode).openConnection();
+    }
+
+    public static RecordableHttpURLConnection getSimpleHttpURLConnection(String cassetteName, Mode mode)
+            throws IOException {
+        return getSimpleHttpURLConnection(FakeDataService.GET_POSTS_URL, cassetteName, mode);
     }
 
     public static RecordableHttpsURLConnection getSimpleHttpsURLConnection(String url, String cassetteName, Mode mode)
             throws IOException {
         Cassette cassette = getCassette(cassetteName);
-        return new RecordableURL(new URL(url), cassette, mode, null).openConnectionSecure();
+        return new RecordableURL(new URL(url), cassette, mode).openConnectionSecure();
+    }
+
+    public static RecordableHttpsURLConnection getSimpleHttpsURLConnection(String cassetteName, Mode mode)
+            throws IOException {
+        return getSimpleHttpsURLConnection(FakeDataService.GET_POSTS_URL, cassetteName, mode);
     }
 
     public static VCR getSimpleVCR(Mode mode) {

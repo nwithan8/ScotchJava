@@ -25,7 +25,7 @@ public class Cassette {
         _filePath = Tools.getFilePath(folderPath, cassetteName + ".json");
     }
 
-    public int count() {
+    public int numInteractions() {
         try {
             return read().size();
         } catch (VCRException ex) {

@@ -37,7 +37,7 @@ public class RecordableCloseableHttpClient extends CloseableHttpClient {
         this.client = HttpClients.createDefault();
         this.cassette = cassette;
         this.mode = mode;
-        this.advancedSettings = advancedSettings;
+        this.advancedSettings = advancedSettings != null ? advancedSettings : new AdvancedSettings();
         this.converter = new ApacheInteractionConverter();
     }
 

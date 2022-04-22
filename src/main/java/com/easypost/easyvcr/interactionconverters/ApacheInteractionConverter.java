@@ -40,9 +40,9 @@ public class ApacheInteractionConverter extends BaseInteractionConverter {
             }
 
             // apply censors
-            uriString = censors.censorQueryParameters(uriString);
-            headers = censors.censorHeaders(headers);
-            body = censors.censorBodyParameters(body);
+            uriString = censors.applyQueryParametersCensors(uriString);
+            headers = censors.applyHeadersCensors(headers);
+            body = censors.applyBodyParametersCensors(body);
 
             // create the request
             Request request = new Request();
@@ -84,9 +84,9 @@ public class ApacheInteractionConverter extends BaseInteractionConverter {
             String body = readFromInputStream(httpResponse.getEntity().getContent());
 
             // apply censors
-            uriString = censors.censorQueryParameters(uriString);
-            headers = censors.censorHeaders(headers);
-            body = censors.censorBodyParameters(body);
+            uriString = censors.applyQueryParametersCensors(uriString);
+            headers = censors.applyHeadersCensors(headers);
+            body = censors.applyBodyParametersCensors(body);
 
             // create the response
             Response response = new Response();

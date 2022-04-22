@@ -10,6 +10,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -61,7 +62,7 @@ public class Censors {
         return this;
     }
 
-    public String censorBodyParameters(String body) {
+    public String applyBodyParametersCensors(String body) {
         if (body == null || body.length() == 0) {
             // short circuit if body is null or empty
             return body;
@@ -89,21 +90,23 @@ public class Censors {
         return Serialization.convertObjectToJson(bodyParameters);
     }
 
-    public Map<String, List<String>> censorHeaders(Map<String, List<String>> headers) {
+    public Map<String, List<String>> applyHeadersCensors(Map<String, List<String>> headers) {
         if (headers == null || headers.size() == 0) {
             // short circuit if there are no headers to censor
             return headers;
         }
 
+        final Map<String, List<String>> headersCopy = new HashMap<>(headers);
+
         for (String headerKey : _headersToCensor) {
-            if (headers.containsKey(headerKey)) {
-                headers.put(headerKey, Collections.singletonList(_censorText));
+            if (headersCopy.containsKey(headerKey)) {
+                headersCopy.put(headerKey, Collections.singletonList(_censorText));
             }
         }
-        return headers;
+        return headersCopy;
     }
 
-    public String censorQueryParameters(String url) {
+    public String applyQueryParametersCensors(String url) {
         if (url == null) {
             // short circuit if url is null
             return url;

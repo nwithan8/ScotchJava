@@ -26,8 +26,8 @@ public class HttpUrlConnectionInteractionConverter extends BaseInteractionConver
             String method = connection.getRequestMethod();
 
             // apply censors
-            uriString = censors.censorQueryParameters(uriString);
-            headers = censors.censorHeaders(headers);
+            uriString = censors.applyQueryParametersCensors(uriString);
+            headers = censors.applyHeadersCensors(headers);
 
             // create the request
             Request request = new Request();
@@ -65,8 +65,8 @@ public class HttpUrlConnectionInteractionConverter extends BaseInteractionConver
             }
 
             // apply censors
-            uriString = censors.censorQueryParameters(uriString);
-            headers = censors.censorHeaders(headers);
+            uriString = censors.applyQueryParametersCensors(uriString);
+            headers = censors.applyHeadersCensors(headers);
             // we don't censor the response body, only the request body
 
             // create the response

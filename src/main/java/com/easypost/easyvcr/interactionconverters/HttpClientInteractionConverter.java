@@ -41,7 +41,7 @@ public class HttpClientInteractionConverter extends BaseInteractionConverter {
 
     // Happens first when making a request
     public void noteRequestBody(RecordableHttpRequest.BodyPublisher body, Censors censors) {
-        String contents = censors.censorBodyParameters(body.contents);
+        String contents = censors.applyBodyParametersCensors(body.contents);
         currentRequest.setBody(contents);
     }
 
@@ -54,9 +54,9 @@ public class HttpClientInteractionConverter extends BaseInteractionConverter {
         String method = httpRequest.method();
 
         // apply censors
-        uriString = censors.censorQueryParameters(uriString);
+        uriString = censors.applyQueryParametersCensors(uriString);
         Map<String, List<String>> headersMap = toHeaders(headers);
-        headersMap = censors.censorHeaders(headersMap);
+        headersMap = censors.applyHeadersCensors(headersMap);
 
         // create the request
         currentRequest.setMethod(method);
@@ -79,7 +79,7 @@ public class HttpClientInteractionConverter extends BaseInteractionConverter {
 
         // apply censors
         Map<String, List<String>> headersMap = toHeaders(headers);
-        headersMap = censors.censorHeaders(headersMap);
+        headersMap = censors.applyHeadersCensors(headersMap);
 
         // create the response
         currentResponse.setStatus(new Status(responseCode, null));

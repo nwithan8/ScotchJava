@@ -55,7 +55,7 @@ public class RecordableURL {
         this.url = new URL(context, spec, handler);
         this.cassette = cassette;
         this.mode = mode;
-        this.advancedSettings = advancedSettings;
+        this.advancedSettings = advancedSettings != null ? advancedSettings : new AdvancedSettings();
     }
 
     public RecordableURL(URL context, String spec, URLStreamHandler handler, Cassette cassette, Mode mode)
@@ -86,7 +86,7 @@ public class RecordableURL {
         this.url = context;
         this.cassette = cassette;
         this.mode = mode;
-        this.advancedSettings = advancedSettings;
+        this.advancedSettings = advancedSettings != null ? advancedSettings : new AdvancedSettings();
     }
 
     public RecordableURL(URL context, Cassette cassette, Mode mode) throws MalformedURLException {
