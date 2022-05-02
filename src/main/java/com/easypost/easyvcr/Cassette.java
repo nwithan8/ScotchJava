@@ -14,14 +14,14 @@ import java.util.List;
 
 public class Cassette {
 
-    public final String Name;
+    public final String name;
 
     private final String _filePath;
 
     private boolean _locked;
 
     public Cassette(String folderPath, String cassetteName) {
-        Name = cassetteName;
+        name = cassetteName;
         _filePath = Tools.getFilePath(folderPath, cassetteName + ".json");
     }
 

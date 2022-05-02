@@ -56,6 +56,9 @@ public class RecordableURL {
         this.cassette = cassette;
         this.mode = mode;
         this.advancedSettings = advancedSettings != null ? advancedSettings : new AdvancedSettings();
+        if (this.cassette == null) {
+            throw new IllegalArgumentException("Cassette cannot be null");
+        }
     }
 
     public RecordableURL(URL context, String spec, URLStreamHandler handler, Cassette cassette, Mode mode)

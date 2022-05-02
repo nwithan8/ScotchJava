@@ -16,7 +16,7 @@ import java.time.Instant;
 public class HttpUrlConnectionTest {
 
     private static FakeDataService.Post[] GetPostsRequest(Cassette cassette, Mode mode) throws Exception {
-        RecordableHttpsURLConnection connection = TestUtils.getSimpleHttpsURLConnection(cassette.Name, mode);
+        RecordableHttpsURLConnection connection = TestUtils.getSimpleHttpsURLConnection(cassette.name, mode);
 
         FakeDataService.HttpsUrlConnection fakeDataService = new FakeDataService.HttpsUrlConnection(connection);
 

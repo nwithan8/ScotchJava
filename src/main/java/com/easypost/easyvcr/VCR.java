@@ -25,7 +25,7 @@ public class VCR {
         if (_currentCassette == null) {
             return null;
         }
-        return _currentCassette.Name;
+        return _currentCassette.name;
     }
 
     public RecordableCloseableHttpClient getApacheHttpClient() {
