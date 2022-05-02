@@ -100,8 +100,8 @@ public class HttpUrlConnectionTest {
 
         // Most elements of a VCR request are black-boxed, so we can't test them here.
         // Instead, we can get the recreated HttpResponseMessage and check the details.
-        FakeDataService.HttpsUrlConnection response =
-                (FakeDataService.HttpsUrlConnection) fakeDataService.getPostsRawResponse();
+        RecordableHttpsURLConnection response =
+                (RecordableHttpsURLConnection) fakeDataService.getPostsRawResponse();
         Assert.assertNotNull(response);
     }
 
